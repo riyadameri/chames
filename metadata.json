@@ -1,0 +1,10 @@
+{
+  "name": "منصة شمس التطوع",
+  "description": "المنصة الرسمية للتطوع والعمل الشبابي لوزارة الشباب والرياضة لنشر المشاريع التنافسية، حساب النقاط، وإدارة المؤسسات والنوادي والمتطوعين.",
+  "requestFramePermissions": [
+    "geolocation"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
