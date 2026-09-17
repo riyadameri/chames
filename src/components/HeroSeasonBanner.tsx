@@ -15,7 +15,15 @@ import {
   X
 } from 'lucide-react';
 
-export const HeroSeasonBanner: React.FC = () => {
+interface HeroSeasonBannerProps {
+  onOpenLeaderboard?: () => void;
+  onOpenActivities?: () => void;
+}
+
+export const HeroSeasonBanner: React.FC<HeroSeasonBannerProps> = ({
+  onOpenLeaderboard,
+  onOpenActivities
+}) => {
   const { season, allUsers, activities, submissions } = useApp();
   const [showPrizesModal, setShowPrizesModal] = useState(false);
 
@@ -71,6 +79,16 @@ export const HeroSeasonBanner: React.FC = () => {
                 <span>عرض جوائز الموسم (3 للأفراد و 3 للمؤسسات)</span>
                 <ChevronLeft className="w-4 h-4" />
               </button>
+
+              {onOpenLeaderboard && (
+                <button
+                  onClick={onOpenLeaderboard}
+                  className="inline-flex items-center gap-2 px-4 py-3 rounded-2xl bg-amber-400/20 hover:bg-amber-400/30 border border-amber-300/40 text-amber-200 text-xs font-bold transition cursor-pointer"
+                >
+                  <Award className="w-4 h-4 text-amber-300" />
+                  <span>لوحة المتصدرين الوطنية</span>
+                </button>
+              )}
 
               <div className="inline-flex items-center gap-2 px-4 py-3 rounded-2xl bg-white/10 hover:bg-white/15 border border-white/10 text-white text-xs font-bold backdrop-blur-md">
                 <Calendar className="w-4 h-4 text-emerald-400" />

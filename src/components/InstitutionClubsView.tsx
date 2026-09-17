@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { AffiliatedClub, InstitutionType } from '../types';
+import { AffiliatedClub, InstitutionType, Activity, User } from '../types';
+import { InstitutionDetailModal } from './InstitutionDetailModal';
 import { 
   Building2, 
   Users, 
@@ -13,14 +14,19 @@ import {
   CheckCircle2, 
   X,
   Compass,
-  Search
+  Search,
+  ExternalLink
 } from 'lucide-react';
 
 interface InstitutionClubsViewProps {
   onOpenCreateActivity: () => void;
+  onSelectActivity?: (activity: Activity) => void;
 }
 
-export const InstitutionClubsView: React.FC<InstitutionClubsViewProps> = ({ onOpenCreateActivity }) => {
+export const InstitutionClubsView: React.FC<InstitutionClubsViewProps> = ({ 
+  onOpenCreateActivity,
+  onSelectActivity 
+}) => {
   const { 
     clubs, 
     addClub, 
@@ -33,6 +39,10 @@ export const InstitutionClubsView: React.FC<InstitutionClubsViewProps> = ({ onOp
   const [showAddClubModal, setShowAddClubModal] = useState(false);
   const [selectedClubForEnroll, setSelectedClubForEnroll] = useState<AffiliatedClub | null>(null);
   const [selectedActivityId, setSelectedActivityId] = useState<string>('');
+  
+  // Modals for inspecting institution or club
+  const [selectedInstitutionForDetails, setSelectedInstitutionForDetails] = useState<User | null>(null);
+  const [selectedClubForDetails, setSelectedClubForDetails] = useState<AffiliatedClub | null>(null);
 
   // Add Club Form state
   const [clubName, setClubName] = useState('');
@@ -41,7 +51,7 @@ export const InstitutionClubsView: React.FC<InstitutionClubsViewProps> = ({ onOp
   const [phone, setPhone] = useState('0550 00 11 22');
   const [membersCount, setMembersCount] = useState(25);
   const [institutionName, setInstitutionName] = useState(
-    currentUser.affiliatedInstitutionName || 'دار الشباب وادي قريش النموذجية'
+    currentUser.affiliatedInstitutionName || currentUser.name || ''
   );
 
   const [searchClub, setSearchClub] = useState('');
@@ -55,8 +65,8 @@ export const InstitutionClubsView: React.FC<InstitutionClubsViewProps> = ({ onOp
     addClub({
       name: clubName.trim(),
       specialty: specialty.trim(),
-      institutionId: currentUser.affiliatedInstitutionId || 'user-inst-1',
-      institutionName: institutionName.trim(),
+      institutionId: currentUser.affiliatedInstitutionId || currentUser.id,
+      institutionName: institutionName.trim() || currentUser.name,
       leaderName: leaderName.trim() || 'مسؤول النادي',
       phone: phone.trim(),
       membersCount: Number(membersCount) || 15,
@@ -147,16 +157,18 @@ export const InstitutionClubsView: React.FC<InstitutionClubsViewProps> = ({ onOp
           {institutionUsers.map((inst) => (
             <div
               key={inst.id}
-              className="p-4 rounded-2xl border border-slate-200 bg-slate-50/50 hover:bg-slate-50 hover:border-blue-300 transition space-y-3"
+              onClick={() => setSelectedInstitutionForDetails(inst)}
+              className="p-4 rounded-2xl border border-slate-200 bg-slate-50/50 hover:bg-slate-50 hover:border-blue-400 hover:shadow-md transition space-y-3 cursor-pointer group"
+              title="انقر لعرض تفاصيل الهيكل ومشاركاته ونواديه"
             >
               <div className="flex items-center gap-3">
                 <img
                   src={inst.avatar}
                   alt={inst.name}
-                  className="w-12 h-12 rounded-xl object-cover border border-slate-200"
+                  className="w-12 h-12 rounded-xl object-cover border border-slate-200 group-hover:scale-105 transition"
                 />
                 <div className="min-w-0">
-                  <div className="font-bold text-xs text-slate-900 truncate">{inst.name}</div>
+                  <div className="font-bold text-xs text-slate-900 group-hover:text-blue-800 transition truncate">{inst.name}</div>
                   <span className="text-[10px] text-blue-700 bg-blue-50 px-2 py-0.5 rounded font-semibold border border-blue-200">
                     {getInstitutionTypeLabel(inst.institutionType)}
                   </span>
@@ -209,7 +221,11 @@ export const InstitutionClubsView: React.FC<InstitutionClubsViewProps> = ({ onOp
               key={club.id}
               className="p-5 rounded-3xl border border-slate-200 hover:border-slate-300 shadow-xs hover:shadow-lg transition bg-white flex flex-col justify-between space-y-4"
             >
-              <div className="space-y-3">
+              <div 
+                onClick={() => setSelectedClubForDetails(club)}
+                className="space-y-3 cursor-pointer group"
+                title="انقر لعرض تفاصيل النادي والنشاطات المشارك فيها"
+              >
                 
                 {/* Club Header */}
                 <div className="flex items-start justify-between gap-2">
@@ -217,10 +233,10 @@ export const InstitutionClubsView: React.FC<InstitutionClubsViewProps> = ({ onOp
                     <img
                       src={club.avatar}
                       alt={club.name}
-                      className="w-12 h-12 rounded-2xl object-cover border border-slate-200"
+                      className="w-12 h-12 rounded-2xl object-cover border border-slate-200 group-hover:scale-105 transition"
                     />
                     <div>
-                      <h4 className="font-black text-sm text-slate-900 leading-snug">{club.name}</h4>
+                      <h4 className="font-black text-sm text-slate-900 group-hover:text-blue-800 transition leading-snug">{club.name}</h4>
                       <p className="text-[11px] text-emerald-700 font-bold">{club.specialty}</p>
                     </div>
                   </div>
@@ -249,15 +265,19 @@ export const InstitutionClubsView: React.FC<InstitutionClubsViewProps> = ({ onOp
               </div>
 
               {/* Participation Stats & Enroll Action */}
-              <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
-                <span className="text-xs text-slate-500">
-                  مشارك في: <strong className="text-slate-800">{club.enrolledActivitiesCount}</strong> نشاط
-                </span>
+              <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
+                <button
+                  onClick={() => setSelectedClubForDetails(club)}
+                  className="text-xs font-bold text-blue-700 hover:text-blue-900 transition flex items-center gap-1 cursor-pointer"
+                >
+                  <span>عرض المشاريع</span>
+                  <span>←</span>
+                </button>
 
                 {canManageClubs && (
                   <button
                     onClick={() => setSelectedClubForEnroll(club)}
-                    className="px-3.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-800 font-bold text-xs rounded-xl border border-blue-200 transition"
+                    className="px-3.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-800 font-bold text-xs rounded-xl border border-blue-200 transition cursor-pointer"
                   >
                     + إشراك في نشاط
                   </button>
@@ -435,6 +455,21 @@ export const InstitutionClubsView: React.FC<InstitutionClubsViewProps> = ({ onOp
             </div>
           </div>
         </div>
+      )}
+
+      {/* Institution Detail Modal */}
+      {(selectedInstitutionForDetails || selectedClubForDetails) && (
+        <InstitutionDetailModal
+          institution={selectedInstitutionForDetails}
+          club={selectedClubForDetails}
+          onClose={() => {
+            setSelectedInstitutionForDetails(null);
+            setSelectedClubForDetails(null);
+          }}
+          onSelectActivity={(act) => {
+            if (onSelectActivity) onSelectActivity(act);
+          }}
+        />
       )}
 
     </div>

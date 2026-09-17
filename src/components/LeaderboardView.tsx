@@ -19,7 +19,11 @@ import {
   ShieldCheck
 } from 'lucide-react';
 
-export const LeaderboardView: React.FC = () => {
+interface LeaderboardViewProps {
+  onOpenProfile?: (user: UserAccount) => void;
+}
+
+export const LeaderboardView: React.FC<LeaderboardViewProps> = ({ onOpenProfile }) => {
   const { 
     individualUsers, 
     institutionUsers, 
@@ -31,6 +35,14 @@ export const LeaderboardView: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'individuals' | 'institutions'>('individuals');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedUserForProfile, setSelectedUserForProfile] = useState<UserAccount | null>(null);
+
+  const handleSelectUser = (u: UserAccount) => {
+    if (onOpenProfile) {
+      onOpenProfile(u);
+    } else {
+      setSelectedUserForProfile(u);
+    }
+  };
 
   const currentList = activeTab === 'individuals' ? individualUsers : institutionUsers;
   const currentPrizes = activeTab === 'individuals' ? season.individualPrizes : season.institutionPrizes;
@@ -109,7 +121,7 @@ export const LeaderboardView: React.FC = () => {
           {/* 2nd Place: Silver (الفضي) */}
           {top2 && (
             <div 
-              onClick={() => setSelectedUserForProfile(top2)}
+              onClick={() => handleSelectUser(top2)}
               className="bg-gradient-to-b from-slate-100 to-slate-200/90 rounded-3xl p-6 border-2 border-slate-300 shadow-lg text-center flex flex-col items-center relative order-2 md:order-1 hover:scale-102 transition duration-300 cursor-pointer group"
             >
               <div className="w-10 h-10 rounded-full bg-slate-400 text-white font-black text-base flex items-center justify-center shadow-md absolute -top-5 border-2 border-white">
@@ -144,7 +156,7 @@ export const LeaderboardView: React.FC = () => {
           {/* 1st Place: GOLD (الذهبي) */}
           {top1 && (
             <div 
-              onClick={() => setSelectedUserForProfile(top1)}
+              onClick={() => handleSelectUser(top1)}
               className="bg-gradient-to-b from-amber-100 via-amber-200/70 to-yellow-100 rounded-3xl p-7 border-2 border-amber-400 shadow-2xl text-center flex flex-col items-center relative order-1 md:order-2 md:-translate-y-4 hover:scale-102 transition duration-300 cursor-pointer group"
             >
               <div className="w-12 h-12 rounded-full bg-amber-500 text-white font-black text-xl flex items-center justify-center shadow-xl absolute -top-6 border-3 border-white animate-bounce">
@@ -182,7 +194,7 @@ export const LeaderboardView: React.FC = () => {
           {/* 3rd Place: Bronze (البرونزي) */}
           {top3 && (
             <div 
-              onClick={() => setSelectedUserForProfile(top3)}
+              onClick={() => handleSelectUser(top3)}
               className="bg-gradient-to-b from-orange-50 to-orange-100/90 rounded-3xl p-6 border-2 border-orange-300 shadow-lg text-center flex flex-col items-center relative order-3 hover:scale-102 transition duration-300 cursor-pointer group"
             >
               <div className="w-10 h-10 rounded-full bg-amber-700 text-white font-black text-base flex items-center justify-center shadow-md absolute -top-5 border-2 border-white">
@@ -259,7 +271,7 @@ export const LeaderboardView: React.FC = () => {
               {filteredUsers.map((user) => (
                 <tr
                   key={user.id}
-                  onClick={() => setSelectedUserForProfile(user)}
+                  onClick={() => handleSelectUser(user)}
                   className="hover:bg-slate-50/80 transition cursor-pointer group"
                 >
                   <td className="py-3.5 px-4 text-center">

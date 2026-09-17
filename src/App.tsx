@@ -7,12 +7,16 @@ import { LeaderboardView } from './components/LeaderboardView';
 import { EvaluationQueueView } from './components/EvaluationQueueView';
 import { InstitutionClubsView } from './components/InstitutionClubsView';
 import { MediaBlogView } from './components/MediaBlogView';
+import { GeneralFeedView } from './components/GeneralFeedView';
 import { UserWorkspaceView } from './components/UserWorkspaceView';
+import { ProfilePageView } from './components/ProfilePageView';
 import { ActivityDetailModal } from './components/ActivityDetailModal';
+import { InstitutionDetailModal } from './components/InstitutionDetailModal';
 import { SubmitProofModal } from './components/SubmitProofModal';
 import { CreateActivityModal } from './components/CreateActivityModal';
+import { AuthModal } from './components/AuthModal';
 import { ToastContainer } from './components/ToastContainer';
-import { Activity } from './types';
+import { Activity, User, UserRole, AffiliatedClub } from './types';
 import { 
   Compass, 
   Trophy, 
@@ -21,16 +25,36 @@ import {
   Newspaper, 
   Sparkles, 
   HeartHandshake,
-  CheckCircle2
+  CheckCircle2,
+  LayoutGrid,
+  User as UserIcon
 } from 'lucide-react';
 
 const AppContent: React.FC = () => {
-  const { currentUser, submissions, season } = useApp();
+  const { 
+    currentUser, 
+    submissions, 
+    season, 
+    authModalState, 
+    openAuthModal, 
+    closeAuthModal 
+  } = useApp();
 
   const [activeTab, setActiveTab] = useState<string>('activities');
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
   const [submissionIdForProof, setSubmissionIdForProof] = useState<string | null>(null);
   const [showCreateActivityModal, setShowCreateActivityModal] = useState<boolean>(false);
+  const [viewingProfileUser, setViewingProfileUser] = useState<User | null>(null);
+  const [selectedInstitutionForDetails, setSelectedInstitutionForDetails] = useState<User | null>(null);
+  const [selectedClubForDetails, setSelectedClubForDetails] = useState<AffiliatedClub | null>(null);
+
+  const pendingReviewsCount = submissions.filter(s => s.status === 'submitted').length;
+
+  const navigateToProfile = (targetUser?: User) => {
+    setViewingProfileUser(targetUser || currentUser);
+    setActiveTab('profile');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   // Submissions for current user needing proof
   const pendingProofSub = submissions.find(
@@ -43,16 +67,25 @@ const AppContent: React.FC = () => {
       {/* Toast Notifications */}
       <ToastContainer />
 
-      {/* Top Navigation */}
+      {/* Top Navigation with Search */}
       <Navbar 
         activeTab={activeTab} 
+        setActiveTab={setActiveTab}
         onSelectTab={setActiveTab} 
+        onOpenCreateActivity={() => setShowCreateActivityModal(true)}
+        onOpenProfile={() => navigateToProfile(currentUser)}
+        onOpenLogin={() => openAuthModal('login')}
+        onOpenRegister={() => openAuthModal('register')}
+        onSelectActivity={(act) => setSelectedActivity(act)}
+        onSelectUser={(u) => navigateToProfile(u)}
+        onSelectClub={(c) => setSelectedClubForDetails(c)}
+        onSelectInstitution={(inst) => setSelectedInstitutionForDetails(inst)}
       />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-8">
+      <main className="max-w-7xl mx-auto w-full px-3 sm:px-6 lg:px-8 py-4 sm:py-6 pb-24 md:pb-8 space-y-6 sm:space-y-8">
         
-        {/* Season Banner (shown at top of Activities and Leaderboard tabs) */}
-        {(activeTab === 'activities' || activeTab === 'leaderboard') && (
+        {/* Season Banner (shown at top of Activities tab) */}
+        {activeTab === 'activities' && (
           <HeroSeasonBanner 
             onOpenLeaderboard={() => setActiveTab('leaderboard')}
             onOpenActivities={() => setActiveTab('activities')}
@@ -82,6 +115,17 @@ const AppContent: React.FC = () => {
         )}
 
         {/* MAIN TAB ROUTING */}
+        {activeTab === 'feed' && (
+          <GeneralFeedView 
+            onSelectUser={(u) => navigateToProfile(u)}
+            onSelectActivity={(actId) => {
+              // find and set
+              setActiveTab('activities');
+            }}
+            onOpenRegister={() => openAuthModal('register')}
+          />
+        )}
+
         {activeTab === 'activities' && (
           <ActivitiesView 
             onSelectActivity={(act) => setSelectedActivity(act)}
@@ -91,7 +135,7 @@ const AppContent: React.FC = () => {
         )}
 
         {activeTab === 'leaderboard' && (
-          <LeaderboardView />
+          <LeaderboardView onOpenProfile={(u) => navigateToProfile(u)} />
         )}
 
         {activeTab === 'evaluator' && (
@@ -101,6 +145,7 @@ const AppContent: React.FC = () => {
         {activeTab === 'institutions' && (
           <InstitutionClubsView 
             onOpenCreateActivity={() => setShowCreateActivityModal(true)}
+            onSelectActivity={(act) => setSelectedActivity(act)}
           />
         )}
 
@@ -108,22 +153,38 @@ const AppContent: React.FC = () => {
           <MediaBlogView />
         )}
 
+        {activeTab === 'profile' && (
+          <ProfilePageView 
+            user={viewingProfileUser || currentUser}
+            onBack={() => setActiveTab('activities')}
+            onSelectUser={(u) => navigateToProfile(u)}
+            onSelectActivity={(act) => setSelectedActivity(act)}
+          />
+        )}
+
         {activeTab === 'workspace' && (
           <UserWorkspaceView 
             onOpenSubmitProof={(subId) => setSubmissionIdForProof(subId)}
             onExploreActivities={() => setActiveTab('activities')}
+            onOpenProfile={() => navigateToProfile(currentUser)}
           />
         )}
 
       </main>
 
       {/* FOOTER */}
-      <footer className="mt-20 border-t border-slate-200 bg-white py-10 text-center text-slate-500 text-xs">
+      <footer className="mt-14 mb-16 md:mb-0 border-t border-slate-200 bg-white py-10 text-center text-slate-500 text-xs">
         <div className="max-w-7xl mx-auto px-4 space-y-4">
-          <div className="flex items-center justify-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-emerald-600 to-amber-500 flex items-center justify-center text-white font-black text-sm shadow">
-              ش
-            </div>
+          <div className="flex items-center justify-center gap-2.5">
+            <img 
+              src="/assets/logo.png" 
+              alt="شعار شمس التطوع" 
+              className="h-8 w-auto max-w-[100px] object-contain rounded-lg"
+              onError={(e) => {
+                const target = e.currentTarget;
+                target.style.display = 'none';
+              }}
+            />
             <span className="font-black text-base text-slate-800">منصة شمس التطوع</span>
             <span className="text-[11px] bg-emerald-50 text-emerald-800 px-2.5 py-0.5 rounded-full font-bold border border-emerald-200">
               الجمهورية الجزائرية الديمقراطية الشعبية
@@ -146,7 +207,120 @@ const AppContent: React.FC = () => {
         </div>
       </footer>
 
+      {/* PROFESSIONAL MOBILE BOTTOM NAVIGATION BAR */}
+      <nav 
+        id="mobile-bottom-nav"
+        className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200/90 md:hidden pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_20px_rgba(0,0,0,0.08)]"
+      >
+        <div className="flex items-center justify-around px-2 py-1 max-w-lg mx-auto">
+          {/* Feed */}
+          <button
+            onClick={() => {
+              setActiveTab('feed');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            className={`flex flex-col items-center justify-center flex-1 py-1 px-1 rounded-xl transition cursor-pointer min-h-[48px] ${
+              activeTab === 'feed'
+                ? 'text-emerald-700 font-black'
+                : 'text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <div className={`p-1 rounded-lg transition ${activeTab === 'feed' ? 'bg-emerald-100 text-emerald-800 scale-110' : ''}`}>
+              <LayoutGrid className="w-5 h-5" />
+            </div>
+            <span className="text-[10px] mt-0.5 tracking-tight font-bold">اللوحة</span>
+          </button>
+
+          {/* Activities */}
+          <button
+            onClick={() => {
+              setActiveTab('activities');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            className={`flex flex-col items-center justify-center flex-1 py-1 px-1 rounded-xl transition cursor-pointer min-h-[48px] ${
+              activeTab === 'activities'
+                ? 'text-emerald-700 font-black'
+                : 'text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <div className={`p-1 rounded-lg transition ${activeTab === 'activities' ? 'bg-emerald-100 text-emerald-800 scale-110' : ''}`}>
+              <Compass className="w-5 h-5" />
+            </div>
+            <span className="text-[10px] mt-0.5 tracking-tight font-bold">النشاطات</span>
+          </button>
+
+          {/* Evaluation Queue with Counter Badge */}
+          <button
+            onClick={() => {
+              setActiveTab('evaluator');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            className={`relative flex flex-col items-center justify-center flex-1 py-1 px-1 rounded-xl transition cursor-pointer min-h-[48px] ${
+              activeTab === 'evaluator'
+                ? 'text-rose-700 font-black'
+                : 'text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <div className={`relative p-1 rounded-lg transition ${activeTab === 'evaluator' ? 'bg-rose-100 text-rose-800 scale-110' : ''}`}>
+              <ShieldCheck className="w-5 h-5" />
+              {pendingReviewsCount > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 bg-rose-600 text-white text-[9px] font-black rounded-full flex items-center justify-center animate-pulse">
+                  {pendingReviewsCount}
+                </span>
+              )}
+            </div>
+            <span className="text-[10px] mt-0.5 tracking-tight font-bold">التقييم</span>
+          </button>
+
+          {/* Institutions / Clubs */}
+          <button
+            onClick={() => {
+              setActiveTab('institutions');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            className={`flex flex-col items-center justify-center flex-1 py-1 px-1 rounded-xl transition cursor-pointer min-h-[48px] ${
+              activeTab === 'institutions'
+                ? 'text-blue-700 font-black'
+                : 'text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <div className={`p-1 rounded-lg transition ${activeTab === 'institutions' ? 'bg-blue-100 text-blue-800 scale-110' : ''}`}>
+              <Building2 className="w-5 h-5" />
+            </div>
+            <span className="text-[10px] mt-0.5 tracking-tight font-bold">الهياكل</span>
+          </button>
+
+          {/* Profile */}
+          <button
+            onClick={() => {
+              setViewingProfileUser(null);
+              setActiveTab('profile');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            className={`flex flex-col items-center justify-center flex-1 py-1 px-1 rounded-xl transition cursor-pointer min-h-[48px] ${
+              activeTab === 'profile'
+                ? 'text-emerald-800 font-black'
+                : 'text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <div className={`p-1 rounded-lg transition ${activeTab === 'profile' ? 'bg-emerald-100 text-emerald-800 scale-110' : ''}`}>
+              <UserIcon className="w-5 h-5" />
+            </div>
+            <span className="text-[10px] mt-0.5 tracking-tight font-bold">حسابي</span>
+          </button>
+        </div>
+      </nav>
+
       {/* MODALS */}
+      {authModalState.isOpen && (
+        <AuthModal 
+          isOpen={authModalState.isOpen}
+          initialMode={authModalState.mode}
+          initialRole={authModalState.role}
+          onClose={closeAuthModal}
+        />
+      )}
+
       {selectedActivity && (
         <ActivityDetailModal 
           activity={selectedActivity}
@@ -165,6 +339,28 @@ const AppContent: React.FC = () => {
       {showCreateActivityModal && (
         <CreateActivityModal 
           onClose={() => setShowCreateActivityModal(false)}
+        />
+      )}
+
+      {selectedInstitutionForDetails && (
+        <InstitutionDetailModal 
+          institution={selectedInstitutionForDetails}
+          onClose={() => setSelectedInstitutionForDetails(null)}
+          onSelectActivity={(act) => {
+            setSelectedInstitutionForDetails(null);
+            setSelectedActivity(act);
+          }}
+        />
+      )}
+
+      {selectedClubForDetails && (
+        <InstitutionDetailModal 
+          club={selectedClubForDetails}
+          onClose={() => setSelectedClubForDetails(null)}
+          onSelectActivity={(act) => {
+            setSelectedClubForDetails(null);
+            setSelectedActivity(act);
+          }}
         />
       )}
 

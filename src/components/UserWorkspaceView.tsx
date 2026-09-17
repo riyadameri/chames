@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
+import { AdminAccountManagerModal } from './AdminAccountManagerModal';
 import { 
   User, 
   Sparkles, 
@@ -12,19 +13,30 @@ import {
   ArrowRight,
   TreePine,
   Layers,
-  Building2
+  Building2,
+  UserPlus,
+  Users,
+  Key,
+  Flame
 } from 'lucide-react';
 
 interface UserWorkspaceViewProps {
   onOpenSubmitProof: (submissionId: string) => void;
   onExploreActivities: () => void;
+  onOpenProfile?: () => void;
 }
 
 export const UserWorkspaceView: React.FC<UserWorkspaceViewProps> = ({
   onOpenSubmitProof,
   onExploreActivities,
+  onOpenProfile,
 }) => {
-  const { currentUser, submissions, activities, individualUsers, institutionUsers } = useApp();
+  const { currentUser, submissions, activities, individualUsers, institutionUsers, allUsers, clubs, isShamsAdmin } = useApp();
+
+  const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
+  const [adminModalTab, setAdminModalTab] = useState<'create_account' | 'users_list' | 'clubs_manager'>('create_account');
+
+  const isGeneralAdmin = currentUser.role === 'general_admin' || currentUser.username === 'riyad' || isShamsAdmin;
 
   // Find user's submissions
   const mySubmissions = submissions.filter(s => s.userId === currentUser.id);
@@ -41,6 +53,70 @@ export const UserWorkspaceView: React.FC<UserWorkspaceViewProps> = ({
   return (
     <div className="space-y-8 text-right">
       
+      {/* Sovereign General Admin Quick Action Console */}
+      {isGeneralAdmin && (
+        <div className="bg-gradient-to-r from-slate-950 via-slate-900 to-amber-950 rounded-3xl p-6 sm:p-7 text-white border border-amber-500/30 shadow-xl space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-amber-500 text-slate-950 flex items-center justify-center font-black shadow-md shadow-amber-500/30">
+                <Award className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="font-black text-base sm:text-lg text-white">
+                    لوحة المدير العام للمنصة: عامري رياض يوسف
+                  </h3>
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-amber-400 text-slate-950 font-black">
+                    @riyad
+                  </span>
+                </div>
+                <p className="text-xs text-slate-300 mt-0.5">
+                  أنت المخول السيادي بإنشاء حسابات المؤسسات، النوادي، المشرفين، مسؤولي الإعلام ومقيمي الإثباتات.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                type="button"
+                onClick={() => {
+                  setAdminModalTab('create_account');
+                  setIsAdminModalOpen(true);
+                }}
+                className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl text-xs font-black shadow-md transition cursor-pointer flex items-center gap-1.5"
+              >
+                <UserPlus className="w-4 h-4" />
+                <span>+ إنشاء حساب جديد</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setAdminModalTab('users_list');
+                  setIsAdminModalOpen(true);
+                }}
+                className="px-3 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1.5"
+              >
+                <Users className="w-3.5 h-3.5 text-amber-300" />
+                <span>إدارة الحسابات ({allUsers.length})</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setAdminModalTab('clubs_manager');
+                  setIsAdminModalOpen(true);
+                }}
+                className="px-3 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1.5"
+              >
+                <Building2 className="w-3.5 h-3.5 text-blue-300" />
+                <span>النوادي الشبانية ({clubs.length})</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Profile & Stats Header */}
       <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-xs">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
@@ -72,6 +148,18 @@ export const UserWorkspaceView: React.FC<UserWorkspaceViewProps> = ({
                   </>
                 )}
               </p>
+
+              {onOpenProfile && (
+                <div className="pt-2">
+                  <button
+                    onClick={onOpenProfile}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold shadow-xs transition cursor-pointer"
+                  >
+                    <Award className="w-3.5 h-3.5 text-amber-400" />
+                    <span>عرض بطاقة البروفايل الرسمية والشهادة</span>
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 
@@ -288,6 +376,13 @@ export const UserWorkspaceView: React.FC<UserWorkspaceViewProps> = ({
           </div>
         )}
       </div>
+
+      {/* Admin Account & Club Manager Modal */}
+      <AdminAccountManagerModal
+        isOpen={isAdminModalOpen}
+        onClose={() => setIsAdminModalOpen(false)}
+        defaultTab={adminModalTab}
+      />
 
     </div>
   );

@@ -258,7 +258,11 @@ export const ActivitiesView: React.FC<ActivitiesViewProps> = ({
               >
                 
                 {/* Cover Image & Badges */}
-                <div className="relative h-48 w-full overflow-hidden bg-slate-100">
+                <div 
+                  onClick={() => onSelectActivity(activity)}
+                  className="relative h-48 w-full overflow-hidden bg-slate-100 cursor-pointer"
+                  title="انقر لعرض تفاصيل المشروع والمتصدرين فيه"
+                >
                   <img
                     src={activity.coverImage}
                     alt={activity.title}

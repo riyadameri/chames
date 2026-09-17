@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useApp } from '../context/AppContext';
 import { ActivityCategory, TargetAudience } from '../types';
 import { 
@@ -11,7 +11,8 @@ import {
   Layers, 
   Sparkles, 
   Trash2,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Upload
 } from 'lucide-react';
 
 interface CreateActivityModalProps {
@@ -50,6 +51,20 @@ export const CreateActivityModal: React.FC<CreateActivityModalProps> = ({ onClos
     'https://images.unsplash.com/photo-1548013146-72479768bada?auto=format&fit=crop&w=800&q=80',
   ];
   const [coverImage, setCoverImage] = useState(coverPresets[0]);
+  const coverFileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleCoverFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      if (typeof event.target?.result === 'string') {
+        setCoverImage(event.target.result);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
 
   // Designated locations list
   const [locations, setLocations] = useState<{ name: string; coordinates?: string }[]>([
@@ -443,23 +458,67 @@ export const CreateActivityModal: React.FC<CreateActivityModalProps> = ({ onClos
           </div>
 
           {/* 5. Cover Image selection */}
-          <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1.5">
-              صورة الغلاف للنشاط
-            </label>
-            <div className="flex gap-2 mb-2 overflow-x-auto pb-1">
-              {coverPresets.map((preset, idx) => (
-                <img
-                  key={idx}
-                  src={preset}
-                  alt="cover"
-                  onClick={() => setCoverImage(preset)}
-                  className={`w-16 h-12 object-cover rounded-xl cursor-pointer border-2 transition ${
-                    coverImage === preset ? 'border-emerald-600 ring-2 ring-emerald-500/20 scale-105' : 'border-transparent opacity-60 hover:opacity-100'
-                  }`}
-                />
-              ))}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="block text-xs font-bold text-slate-800">
+                صورة الغلاف للنشاط
+              </label>
+              <span className="text-[11px] text-slate-500">اختر من جهازك أو من المقترحات</span>
             </div>
+
+            {/* Hidden file input */}
+            <input
+              ref={coverFileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleCoverFileUpload}
+              className="hidden"
+            />
+
+            {/* Direct Device Upload Button */}
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => coverFileInputRef.current?.click()}
+                className="flex-1 py-2.5 px-3 border-2 border-dashed border-emerald-400 rounded-xl bg-emerald-50/40 hover:bg-emerald-100/60 transition cursor-pointer flex items-center justify-center gap-2 text-xs font-black text-emerald-950"
+              >
+                <Upload className="w-4 h-4 text-emerald-600" />
+                <span>📁 رفع صورة من جهازك للنشاط</span>
+              </button>
+            </div>
+
+            {/* Current Cover Preview */}
+            {coverImage && (
+              <div className="relative h-28 rounded-xl overflow-hidden border border-slate-200 bg-slate-100">
+                <img
+                  src={coverImage}
+                  alt="معاينة غلاف النشاط"
+                  className="w-full h-full object-cover"
+                />
+                <div className="absolute top-2 left-2 bg-black/60 backdrop-blur-xs text-white text-[10px] px-2 py-0.5 rounded-lg">
+                  معاينة الغلاف
+                </div>
+              </div>
+            )}
+
+            {/* Presets bar */}
+            <div>
+              <span className="text-[11px] text-slate-600 font-bold block mb-1">أو اختر صورة جاهزة:</span>
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {coverPresets.map((preset, idx) => (
+                  <img
+                    key={idx}
+                    src={preset}
+                    alt="cover"
+                    onClick={() => setCoverImage(preset)}
+                    className={`w-16 h-12 object-cover rounded-xl cursor-pointer border-2 transition shrink-0 ${
+                      coverImage === preset ? 'border-emerald-600 ring-2 ring-emerald-500/20 scale-105' : 'border-transparent opacity-60 hover:opacity-100'
+                    }`}
+                  />
+                ))}
+              </div>
+            </div>
+
             <input
               type="text"
               value={coverImage}
