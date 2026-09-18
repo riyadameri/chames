@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useApp } from '../context/AppContext';
 import { BlogPost, ReactionType } from '../types';
 import { 
@@ -18,8 +18,13 @@ import {
   Repeat,
   Send,
   LayoutTemplate,
-  Layers
+  Layers,
+  Edit3,
+  Trash2,
+  Upload
 } from 'lucide-react';
+import { EditMediaPostModal } from './EditMediaPostModal';
+import { saveImageToFileSystem } from '../utils/fileStorage';
 
 interface MediaBlogViewProps {
   onSelectActivityForDetails?: (activityId: string) => void;
@@ -29,11 +34,15 @@ export const MediaBlogView: React.FC<MediaBlogViewProps> = () => {
   const { 
     blogPosts, 
     addBlogPost, 
+    updateBlogPost,
+    deleteBlogPost,
     toggleLikePost, 
     currentUser, 
     toggleBlogPostReaction, 
     addBlogPostComment, 
     repostToProfile,
+    isShamsAdmin,
+    canManageAllContent,
     showToast 
   } = useApp();
 
@@ -41,6 +50,7 @@ export const MediaBlogView: React.FC<MediaBlogViewProps> = () => {
   const [viewStyle, setViewStyle] = useState<'poster' | 'cards'>('poster');
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedPost, setSelectedPost] = useState<BlogPost | null>(null);
+  const [editingPost, setEditingPost] = useState<BlogPost | null>(null);
 
   // Comment input per post
   const [commentInputs, setCommentInputs] = useState<Record<string, string>>({});
@@ -53,8 +63,14 @@ export const MediaBlogView: React.FC<MediaBlogViewProps> = () => {
   const [category, setCategory] = useState<'تغطية ميدانية' | 'بلاغ وزاري' | 'قصة نجاح' | 'توجيهات وإرشادات'>('تغطية ميدانية');
   const [tagsInput, setTagsInput] = useState('شمس التطوع, شباب الجزائر, بيئة');
   const [imageUrl, setImageUrl] = useState('https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?auto=format&fit=crop&w=800&q=80');
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const createFileInputRef = useRef<HTMLInputElement>(null);
 
-  const canPublishMedia = currentUser.role === 'media_admin' || currentUser.role === 'general_admin';
+  const canPublishMedia = currentUser.role === 'media_admin' || currentUser.role === 'general_admin' || canManageAllContent;
+
+  const canManagePost = (post: BlogPost) => {
+    return canManageAllContent || currentUser.role === 'general_admin' || currentUser.role === 'media_admin' || isShamsAdmin || post.authorId === currentUser.id;
+  };
 
   const handleCreatePost = (e: React.FormEvent) => {
     e.preventDefault();
@@ -197,14 +213,47 @@ export const MediaBlogView: React.FC<MediaBlogViewProps> = () => {
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent"></div>
 
-                  {/* Top Badges */}
-                  <div className="absolute top-4 right-4 left-4 flex items-center justify-between pointer-events-none">
-                    <span className="px-3.5 py-1 rounded-xl text-xs font-black bg-amber-400 text-slate-950 shadow-md">
-                      {post.category}
-                    </span>
-                    <span className="px-3 py-1 rounded-xl text-[10px] font-bold bg-black/60 text-white backdrop-blur-md">
-                      بوستر شمس ميديا ☀️
-                    </span>
+                  {/* Top Badges & Actions */}
+                  <div className="absolute top-4 right-4 left-4 flex items-center justify-between z-10">
+                    <div className="flex items-center gap-2">
+                      <span className="px-3.5 py-1 rounded-xl text-xs font-black bg-amber-400 text-slate-950 shadow-md">
+                        {post.category}
+                      </span>
+                      <span className="hidden sm:inline-block px-3 py-1 rounded-xl text-[10px] font-bold bg-black/60 text-white backdrop-blur-md">
+                        بوستر شمس ميديا ☀️
+                      </span>
+                    </div>
+
+                    {canManagePost(post) && (
+                      <div className="flex items-center gap-1.5 bg-slate-950/80 p-1 rounded-2xl backdrop-blur-md shadow-lg border border-white/10">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingPost(post);
+                          }}
+                          className="px-2.5 py-1 rounded-xl text-xs font-black bg-teal-600 hover:bg-teal-500 text-white flex items-center gap-1 transition cursor-pointer shadow-xs"
+                          title="تعديل المنشور واستبدال الصورة"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" />
+                          <span>تعديل</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (window.confirm(`هل أنت متأكد من حذف منشور "${post.title}" نهائياً؟`)) {
+                              deleteBlogPost(post.id);
+                            }
+                          }}
+                          className="px-2.5 py-1 rounded-xl text-xs font-black bg-rose-600 hover:bg-rose-500 text-white flex items-center gap-1 transition cursor-pointer shadow-xs"
+                          title="حذف هذا المنشور"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>حذف</span>
+                        </button>
+                      </div>
+                    )}
                   </div>
 
                   {/* Bottom of poster image with title */}
@@ -408,9 +457,41 @@ export const MediaBlogView: React.FC<MediaBlogViewProps> = () => {
                     alt={post.title}
                     className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
                   />
-                  <span className="absolute top-3 right-3 px-3 py-1 rounded-xl text-[10px] font-bold bg-white/95 text-teal-900 backdrop-blur-md shadow-xs">
-                    {post.category}
-                  </span>
+                  <div className="absolute top-3 right-3 left-3 flex items-center justify-between z-10">
+                    <span className="px-3 py-1 rounded-xl text-[10px] font-bold bg-white/95 text-teal-900 backdrop-blur-md shadow-xs">
+                      {post.category}
+                    </span>
+
+                    {canManagePost(post) && (
+                      <div className="flex items-center gap-1 bg-slate-950/80 p-1 rounded-xl backdrop-blur-md shadow-sm">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingPost(post);
+                          }}
+                          className="px-2 py-0.5 text-[10px] font-black bg-teal-600 hover:bg-teal-500 text-white rounded-lg transition cursor-pointer flex items-center gap-1"
+                          title="تعديل المنشور"
+                        >
+                          <Edit3 className="w-3 h-3" />
+                          <span>تعديل</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (window.confirm(`هل أنت متأكد من حذف منشور "${post.title}"؟`)) {
+                              deleteBlogPost(post.id);
+                            }
+                          }}
+                          className="p-1 text-rose-300 hover:text-white rounded-lg hover:bg-rose-600/50 transition cursor-pointer"
+                          title="حذف المنشور"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {/* Content */}
@@ -557,6 +638,38 @@ export const MediaBlogView: React.FC<MediaBlogViewProps> = () => {
                   <Repeat className="w-3.5 h-3.5" />
                   <span>نشر في ملفي الشخصي</span>
                 </button>
+
+                {canManagePost(selectedPost) && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const target = selectedPost;
+                        setSelectedPost(null);
+                        setEditingPost(target);
+                      }}
+                      className="flex items-center gap-1.5 px-3.5 py-2 bg-teal-700 hover:bg-teal-800 text-white rounded-xl text-xs font-black shadow-xs transition cursor-pointer"
+                      title="تعديل المنشور واستبدال الصورة"
+                    >
+                      <Edit3 className="w-3.5 h-3.5" />
+                      <span>تعديل</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (window.confirm(`هل أنت متأكد من حذف منشور "${selectedPost.title}" نهائياً؟`)) {
+                          deleteBlogPost(selectedPost.id);
+                          setSelectedPost(null);
+                        }
+                      }}
+                      className="flex items-center gap-1.5 px-3.5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-black shadow-xs transition cursor-pointer"
+                      title="حذف هذا المنشور"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>حذف</span>
+                    </button>
+                  </>
+                )}
               </div>
 
               <button
@@ -633,13 +746,48 @@ export const MediaBlogView: React.FC<MediaBlogViewProps> = () => {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">رابط صورة البوستر الميداني</label>
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-bold text-slate-700">صورة البوستر الميداني (حفظ في الملفات)</label>
+                  <button
+                    type="button"
+                    onClick={() => createFileInputRef.current?.click()}
+                    disabled={isUploadingImage}
+                    className="px-2.5 py-1 bg-teal-50 hover:bg-teal-100 text-teal-800 rounded-lg text-[11px] font-bold border border-teal-200 flex items-center gap-1 transition cursor-pointer"
+                  >
+                    <Upload className="w-3 h-3 text-teal-600" />
+                    <span>{isUploadingImage ? 'جاري الحفظ...' : 'رفع من ملفات الجهاز 📁'}</span>
+                  </button>
+                </div>
+                <input
+                  ref={createFileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    try {
+                      setIsUploadingImage(true);
+                      const { dataUrl, record } = await saveImageToFileSystem(file, 'media');
+                      setImageUrl(dataUrl);
+                      showToast({
+                        type: 'success',
+                        title: 'تم حفظ الصورة في الملفات 📁',
+                        message: `تم حفظ "${record.name}" في مكتبة ملفات المنصة.`
+                      });
+                    } catch (err) {
+                      console.error(err);
+                    } finally {
+                      setIsUploadingImage(false);
+                    }
+                  }}
+                />
                 <input
                   type="url"
                   value={imageUrl}
                   onChange={(e) => setImageUrl(e.target.value)}
-                  placeholder="https://images.unsplash.com/..."
+                  placeholder="https://images.unsplash.com/... أو ارفع من الملفات"
                   className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-teal-500"
                 />
               </div>
@@ -687,6 +835,14 @@ export const MediaBlogView: React.FC<MediaBlogViewProps> = () => {
 
           </div>
         </div>
+      )}
+
+      {/* EDIT MEDIA POST MODAL */}
+      {editingPost && (
+        <EditMediaPostModal
+          post={editingPost}
+          onClose={() => setEditingPost(null)}
+        />
       )}
 
     </div>

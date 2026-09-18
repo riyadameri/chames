@@ -15,26 +15,35 @@ import {
   ArrowLeft,
   Share2,
   TreePine,
-  Layers
+  Layers,
+  Edit3,
+  Trash2
 } from 'lucide-react';
 
 interface ActivityDetailModalProps {
   activity: Activity;
   onClose: () => void;
   onOpenSubmitProof: (submissionId: string) => void;
+  onEditActivity?: (activity: Activity) => void;
 }
 
 export const ActivityDetailModal: React.FC<ActivityDetailModalProps> = ({
   activity,
   onClose,
   onOpenSubmitProof,
+  onEditActivity,
 }) => {
   const { 
     currentUser, 
     applyToActivity, 
+    deleteActivity,
     submissions, 
-    getActivityLeaderboard 
+    getActivityLeaderboard,
+    isShamsAdmin,
+    canManageAllContent
   } = useApp();
+
+  const canManageActivity = canManageAllContent || isShamsAdmin || currentUser.role === 'general_admin' || currentUser.role === 'media_admin' || (currentUser.role === 'institution_admin' && (activity.creatorRole === 'institution_admin' || activity.institutionId === currentUser.affiliatedInstitutionId));
 
   // Check if current user has enrolled in this activity
   const mySubmission = submissions.find(
@@ -290,6 +299,35 @@ export const ActivityDetailModal: React.FC<ActivityDetailModalProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
+            {canManageActivity && (
+              <div className="flex items-center gap-1.5 pl-2 ml-2 border-l border-slate-200">
+                <button
+                  onClick={() => {
+                    onClose();
+                    onEditActivity?.(activity);
+                  }}
+                  className="px-3 py-2.5 rounded-xl bg-slate-100 hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 font-bold text-xs transition flex items-center gap-1.5"
+                  title="تعديل بيانات النشاط واستبدال الصورة"
+                >
+                  <Edit3 className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>تعديل النشاط</span>
+                </button>
+                <button
+                  onClick={() => {
+                    if (window.confirm(`هل أنت متأكد من حذف هذا النشاط التطوعي "${activity.title}"؟`)) {
+                      deleteActivity(activity.id);
+                      onClose();
+                    }
+                  }}
+                  className="px-3 py-2.5 rounded-xl bg-slate-100 hover:bg-red-50 text-slate-700 hover:text-red-700 font-bold text-xs transition flex items-center gap-1.5"
+                  title="حذف النشاط التطوعي"
+                >
+                  <Trash2 className="w-3.5 h-3.5 text-red-600" />
+                  <span>حذف</span>
+                </button>
+              </div>
+            )}
+
             <button
               onClick={onClose}
               className="px-4 py-2.5 rounded-xl border border-slate-300 text-slate-700 font-bold text-xs hover:bg-slate-100 transition"

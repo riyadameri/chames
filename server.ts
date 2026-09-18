@@ -39,6 +39,28 @@ async function startServer() {
     res.json(status);
   });
 
+  // Empty all volunteer projects and posters from database
+  app.post("/api/db/clear-activities-and-posts", async (_req, res) => {
+    try {
+      const db = await getMongoDb();
+      if (!db) return res.status(503).json({ success: false, message: "MongoDB unavailable" });
+      await db.collection("activities").deleteMany({});
+      await db.collection("posts").deleteMany({});
+      await db.collection("submissions").deleteMany({});
+      await db.collection("blogs").deleteMany({});
+      res.json({ success: true, message: "تم تفريغ كافة المشاريع والبوسترات والإثباتات بنجاح." });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // Helper to remove immutable _id before MongoDB updates
+  function cleanDoc(doc: any): Record<string, any> {
+    if (!doc || typeof doc !== "object") return doc;
+    const { _id, ...rest } = doc;
+    return rest;
+  }
+
   // Bootstrap data from MongoDB database 'shames'
   app.get("/api/db/bootstrap", async (_req, res) => {
     try {
@@ -47,13 +69,13 @@ async function startServer() {
         return res.status(503).json({ success: false, message: "MongoDB not connected" });
       }
 
-      const users = await db.collection("users").find({}).toArray();
-      const activities = await db.collection("activities").find({}).toArray();
-      const submissions = await db.collection("submissions").find({}).toArray();
-      const posts = await db.collection("posts").find({}).toArray();
-      const clubs = await db.collection("clubs").find({}).toArray();
-      const notifications = await db.collection("notifications").find({}).toArray();
-      const blogs = await db.collection("blogs").find({}).toArray();
+      const users = await db.collection("users").find({}, { projection: { _id: 0 } }).toArray();
+      const activities = await db.collection("activities").find({}, { projection: { _id: 0 } }).toArray();
+      const submissions = await db.collection("submissions").find({}, { projection: { _id: 0 } }).toArray();
+      const posts = await db.collection("posts").find({}, { projection: { _id: 0 } }).toArray();
+      const clubs = await db.collection("clubs").find({}, { projection: { _id: 0 } }).toArray();
+      const notifications = await db.collection("notifications").find({}, { projection: { _id: 0 } }).toArray();
+      const blogs = await db.collection("blogs").find({}, { projection: { _id: 0 } }).toArray();
 
       res.json({
         success: true,
@@ -96,15 +118,20 @@ async function startServer() {
       const syncSummary: Record<string, number> = {};
 
       for (const [colName, items] of Object.entries(collectionsMap)) {
-        if (items.length > 0) {
+        const validItems = items.filter(item => item && (item.id || item._id));
+        if (validItems.length > 0) {
           const col = db.collection(colName);
-          const ops = items.map(item => ({
-            updateOne: {
-              filter: { id: item.id },
-              update: { $set: item },
-              upsert: true
-            }
-          }));
+          const ops = validItems.map(item => {
+            const itemId = item.id || item._id;
+            const clean = cleanDoc(item);
+            return {
+              updateOne: {
+                filter: { id: itemId },
+                update: { $set: { ...clean, id: itemId } },
+                upsert: true
+              }
+            };
+          });
           const result = await col.bulkWrite(ops, { ordered: false });
           syncSummary[colName] = (result.upsertedCount || 0) + (result.modifiedCount || 0) + (result.matchedCount || 0);
         }
@@ -130,7 +157,8 @@ async function startServer() {
       const user = req.body;
       if (!user || !user.id) return res.status(400).json({ success: false, error: "Missing user id" });
 
-      await db.collection("users").updateOne({ id: user.id }, { $set: user }, { upsert: true });
+      const cleanUser = cleanDoc(user);
+      await db.collection("users").updateOne({ id: user.id }, { $set: { ...cleanUser, id: user.id } }, { upsert: true });
       res.json({ success: true, database: "shames", id: user.id });
     } catch (err: any) {
       res.status(500).json({ success: false, error: err.message });
@@ -157,7 +185,8 @@ async function startServer() {
       const club = req.body;
       if (!club || !club.id) return res.status(400).json({ success: false, error: "Missing club id" });
 
-      await db.collection("clubs").updateOne({ id: club.id }, { $set: club }, { upsert: true });
+      const cleanClub = cleanDoc(club);
+      await db.collection("clubs").updateOne({ id: club.id }, { $set: { ...cleanClub, id: club.id } }, { upsert: true });
       res.json({ success: true, database: "shames", id: club.id });
     } catch (err: any) {
       res.status(500).json({ success: false, error: err.message });
@@ -184,7 +213,8 @@ async function startServer() {
       const activity = req.body;
       if (!activity || !activity.id) return res.status(400).json({ success: false, error: "Missing activity id" });
 
-      await db.collection("activities").updateOne({ id: activity.id }, { $set: activity }, { upsert: true });
+      const cleanActivity = cleanDoc(activity);
+      await db.collection("activities").updateOne({ id: activity.id }, { $set: { ...cleanActivity, id: activity.id } }, { upsert: true });
       res.json({ success: true, database: "shames", id: activity.id });
     } catch (err: any) {
       res.status(500).json({ success: false, error: err.message });
@@ -199,7 +229,8 @@ async function startServer() {
       const submission = req.body;
       if (!submission || !submission.id) return res.status(400).json({ success: false, error: "Missing submission id" });
 
-      await db.collection("submissions").updateOne({ id: submission.id }, { $set: submission }, { upsert: true });
+      const cleanSubmission = cleanDoc(submission);
+      await db.collection("submissions").updateOne({ id: submission.id }, { $set: { ...cleanSubmission, id: submission.id } }, { upsert: true });
       res.json({ success: true, database: "shames", id: submission.id });
     } catch (err: any) {
       res.status(500).json({ success: false, error: err.message });
@@ -214,7 +245,8 @@ async function startServer() {
       const post = req.body;
       if (!post || !post.id) return res.status(400).json({ success: false, error: "Missing post id" });
 
-      await db.collection("posts").updateOne({ id: post.id }, { $set: post }, { upsert: true });
+      const cleanPost = cleanDoc(post);
+      await db.collection("posts").updateOne({ id: post.id }, { $set: { ...cleanPost, id: post.id } }, { upsert: true });
       res.json({ success: true, database: "shames", id: post.id });
     } catch (err: any) {
       res.status(500).json({ success: false, error: err.message });

@@ -178,6 +178,8 @@ export interface UserAccount {
   registrationNumber?: string;
   accreditationStatus?: 'pending' | 'approved' | 'rejected';
   createdAt?: string;
+  isBanned?: boolean;
+  banReason?: string;
   badges: {
     id: string;
     title: string;

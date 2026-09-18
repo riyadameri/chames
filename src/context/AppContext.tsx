@@ -31,7 +31,7 @@ import { INITIAL_NOTIFICATIONS } from '../data/initialNotifications';
 
 interface ToastNotification {
   id: string;
-  type: 'success' | 'info' | 'warning' | 'points';
+  type: 'success' | 'info' | 'warning' | 'points' | 'error';
   title: string;
   message: string;
   pointsAdded?: number;
@@ -88,6 +88,8 @@ interface AppContextType {
 
   // Actions
   addActivity: (activity: Omit<Activity, 'id' | 'enrolledCount' | 'completedCount'>) => void;
+  updateActivity: (activityId: string, updated: Partial<Activity>) => { success: boolean; message: string };
+  deleteActivity: (activityId: string) => { success: boolean; message: string };
   applyToActivity: (activityId: string) => boolean;
   submitProof: (submissionId: string, data: { proofItems: ProofItem[]; generalNotes?: string; unitsCount?: number }) => boolean;
   evaluateSubmission: (
@@ -98,12 +100,16 @@ interface AppContextType {
   deleteClub: (clubId: string) => void;
   enrollClubInActivity: (clubId: string, activityId: string) => void;
   deleteUserAccount: (userId: string) => { success: boolean; message: string };
+  toggleBanUser: (userId: string, reason?: string) => { success: boolean; message: string };
   addBlogPost: (post: Omit<BlogPost, 'id' | 'publishedAt' | 'likes' | 'views'>) => void;
+  updateBlogPost: (postId: string, updated: Partial<BlogPost>) => { success: boolean; message: string };
+  deleteBlogPost: (postId: string) => { success: boolean; message: string };
   toggleLikePost: (postId: string) => void;
   toggleBlogPostReaction: (postId: string, reactionType: ReactionType) => void;
   addBlogPostComment: (postId: string, content: string) => { success: boolean; message: string };
   repostToProfile: (postId: string, type: 'blog' | 'post') => { success: boolean; message: string };
   isShamsAdmin: boolean;
+  canManageAllContent: boolean;
   
   // UI helpers
   toasts: ToastNotification[];
@@ -188,6 +194,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [activities, setActivities] = useState<Activity[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.ACTIVITIES);
+    if (saved && saved.includes('act-1')) {
+      localStorage.removeItem(STORAGE_KEYS.ACTIVITIES);
+      return [];
+    }
     return saved ? JSON.parse(saved) : INITIAL_ACTIVITIES;
   });
 
@@ -203,6 +213,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [blogPosts, setBlogPosts] = useState<BlogPost[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.BLOGS);
+    if (saved && saved.includes('post-1')) {
+      localStorage.removeItem(STORAGE_KEYS.BLOGS);
+      return [];
+    }
     return saved ? JSON.parse(saved) : INITIAL_BLOG_POSTS;
   });
 
@@ -270,12 +284,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 })
               });
             }
-            if (Array.isArray(a) && a.length > 0 && isMounted) setActivities(a);
-            if (Array.isArray(s) && s.length > 0 && isMounted) setSubmissions(s);
-            if (Array.isArray(p) && p.length > 0 && isMounted) setPosts(p);
-            if (Array.isArray(c) && c.length > 0 && isMounted) setClubs(c);
-            if (Array.isArray(n) && n.length > 0 && isMounted) setNotifications(n);
-            if (Array.isArray(b) && b.length > 0 && isMounted) setBlogPosts(b);
+            if (Array.isArray(a) && isMounted) setActivities(a);
+            if (Array.isArray(s) && isMounted) setSubmissions(s);
+            if (Array.isArray(p) && isMounted) setPosts(p);
+            if (Array.isArray(c) && isMounted) setClubs(c);
+            if (Array.isArray(n) && isMounted) setNotifications(n);
+            if (Array.isArray(b) && isMounted) setBlogPosts(b);
           }
         }
       } catch (err) {
@@ -287,6 +301,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return () => { isMounted = false; };
   }, []);
 
+  // Helper to sanitize items before sending to database sync
+  const sanitizeForSync = (arr: any[]) => (Array.isArray(arr) ? arr : []).map(item => {
+    if (!item || typeof item !== 'object') return item;
+    const { _id, ...rest } = item;
+    return rest;
+  });
+
   // Manual and automated MongoDB synchronization
   const syncNowWithMongoDb = async () => {
     try {
@@ -295,13 +316,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          users,
-          activities,
-          submissions,
-          posts,
-          clubs,
-          notifications,
-          blogs: blogPosts
+          users: sanitizeForSync(users),
+          activities: sanitizeForSync(activities),
+          submissions: sanitizeForSync(submissions),
+          posts: sanitizeForSync(posts),
+          clubs: sanitizeForSync(clubs),
+          notifications: sanitizeForSync(notifications),
+          blogs: sanitizeForSync(blogPosts)
         })
       });
       if (res.ok) {
@@ -369,6 +390,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Derived current user
   const currentUser = users.find(u => u.id === currentUserId) || users[0];
+  const isShamsAdmin = currentUser.username === 'riyad' || currentUser.id === 'admin-gen-1' || currentUser.role === 'general_admin';
+  const canManageAllContent = isShamsAdmin || currentUser.role === 'general_admin' || currentUser.role === 'media_admin';
 
   const setCurrentUser = (user: UserAccount) => {
     setCurrentUserId(user.id);
@@ -715,6 +738,49 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return { success: true, message: 'تم حذف الحساب بنجاح' };
   };
 
+  const toggleBanUser = (userId: string, reason?: string): { success: boolean; message: string } => {
+    if (userId === 'admin-gen-1') {
+      showToast({
+        type: 'error',
+        title: 'عملية غير مسموحة',
+        message: 'لا يمكن حظر حساب المدير العام الافتراضي للمنصة (عامري رياض يوسف).'
+      });
+      return { success: false, message: 'لا يمكن حظر حساب المدير العام الافتراضي.' };
+    }
+    const target = users.find(u => u.id === userId);
+    if (!target) {
+      return { success: false, message: 'المستخدم غير موجود.' };
+    }
+
+    const nextBannedState = !target.isBanned;
+    const defaultReason = reason?.trim() || 'مخالفة معايير وشروط النشر والاستخدام بالمنصة';
+
+    setUsers(prev => prev.map(u => {
+      if (u.id !== userId) return u;
+      return {
+        ...u,
+        isBanned: nextBannedState,
+        banReason: nextBannedState ? defaultReason : undefined,
+      };
+    }));
+
+    if (nextBannedState) {
+      showToast({
+        type: 'warning',
+        title: 'تم حظر المستخدم 🚫',
+        message: `تم حظر حساب "${target.name}" بنجاح وتجميد كافة صلاحياته.`,
+      });
+      return { success: true, message: `تم حظر حساب ${target.name}` };
+    } else {
+      showToast({
+        type: 'success',
+        title: 'تم رفع الحظر بنجاح ✅',
+        message: `تم إلغاء حظر حساب "${target.name}" وإعادة تفعيله.`,
+      });
+      return { success: true, message: `تم إلغاء حظر حساب ${target.name}` };
+    }
+  };
+
   const deleteClub = (clubId: string) => {
     setClubs(prev => prev.filter(c => c.id !== clubId));
     showToast({
@@ -848,9 +914,81 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
   };
 
+  // Update activity
+  const updateActivity = (activityId: string, updated: Partial<Activity>): { success: boolean; message: string } => {
+    const existing = activities.find(a => a.id === activityId);
+    if (!existing) {
+      return { success: false, message: 'النشاط التطوعي غير موجود.' };
+    }
+
+    const canEdit = canManageAllContent || 
+      (currentUser.role === 'institution_admin' && existing.institutionId === currentUser.affiliatedInstitutionId);
+
+    if (!canEdit) {
+      showToast({
+        type: 'error',
+        title: 'صلاحية غير كافية 🚫',
+        message: 'فقط المدير العام ومسؤول ميديا أو الجهة المنشئة يمكنهم تعديل هذا النشاط التطوعي.',
+      });
+      return { success: false, message: 'غير مصرح لك بتعديل هذا النشاط.' };
+    }
+
+    setActivities(prev => prev.map(a => a.id === activityId ? { ...a, ...updated } : a));
+
+    showToast({
+      type: 'success',
+      title: 'تم تعديل النشاط بنجاح ✨',
+      message: `تم تحديث بيانات مشروع "${updated.title || existing.title}".`,
+    });
+
+    return { success: true, message: 'تم تحديث النشاط بنجاح' };
+  };
+
+  // Delete activity
+  const deleteActivity = (activityId: string): { success: boolean; message: string } => {
+    const existing = activities.find(a => a.id === activityId);
+    if (!existing) {
+      return { success: false, message: 'النشاط التطوعي غير موجود.' };
+    }
+
+    const canDelete = canManageAllContent || 
+      (currentUser.role === 'institution_admin' && existing.institutionId === currentUser.affiliatedInstitutionId);
+
+    if (!canDelete) {
+      showToast({
+        type: 'error',
+        title: 'صلاحية غير كافية 🚫',
+        message: 'فقط المدير العام ومسؤول ميديا أو الجهة المنشئة يمكنهم حذف هذا النشاط التطوعي.',
+      });
+      return { success: false, message: 'غير مصرح لك بحذف هذا النشاط.' };
+    }
+
+    setActivities(prev => prev.filter(a => a.id !== activityId));
+    if (selectedActivityId === activityId) {
+      setSelectedActivityId(null);
+    }
+
+    showToast({
+      type: 'info',
+      title: 'تم حذف المشروع التطوعي',
+      message: `تم حذف مشروع "${existing.title}" بنجاح من المنصة.`,
+    });
+
+    return { success: true, message: 'تم حذف النشاط بنجاح' };
+  };
+
   // Apply to an activity
   const applyToActivity = (activityId: string): boolean => {
     if (!requireAuth('المشاركة والاندراج في هذا النشاط التطوعي')) return false;
+
+    if (currentUser.isBanned) {
+      showToast({
+        type: 'error',
+        title: 'الحساب محظور 🚫',
+        message: `حسابك محظور من الانضمام للمشاريع التطوعية بقرار إداري (${currentUser.banReason || 'مخالفة الشروط'}).`,
+      });
+      return false;
+    }
 
     const targetActivity = activities.find(a => a.id === activityId);
     if (!targetActivity) return false;
@@ -1076,6 +1214,58 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
   };
 
+  // Update blog/media post
+  const updateBlogPost = (postId: string, updated: Partial<BlogPost>): { success: boolean; message: string } => {
+    const existing = blogPosts.find(b => b.id === postId);
+    if (!existing) {
+      return { success: false, message: 'المنشور الإعلامي غير موجود.' };
+    }
+
+    const canEdit = canManageAllContent || existing.authorId === currentUser.id;
+    if (!canEdit) {
+      showToast({
+        type: 'error',
+        title: 'صلاحية غير كافية 🚫',
+        message: 'فقط المدير العام ومسؤول ميديا أو كاتب المقال يمكنهم تعديل هذا المنشور الإعلامي.',
+      });
+      return { success: false, message: 'غير مصرح لك بتعديل هذا المنشور.' };
+    }
+
+    setBlogPosts(prev => prev.map(p => p.id === postId ? { ...p, ...updated } : p));
+    showToast({
+      type: 'success',
+      title: 'تم تعديل منشور ميديا بنجاح ✏️',
+      message: `تم تحديث بيانات المنشور "${updated.title || existing.title}".`,
+    });
+    return { success: true, message: 'تم تحديث المنشور بنجاح' };
+  };
+
+  // Delete blog/media post
+  const deleteBlogPost = (postId: string): { success: boolean; message: string } => {
+    const existing = blogPosts.find(b => b.id === postId);
+    if (!existing) {
+      return { success: false, message: 'المنشور الإعلامي غير موجود.' };
+    }
+
+    const canDelete = canManageAllContent || existing.authorId === currentUser.id;
+    if (!canDelete) {
+      showToast({
+        type: 'error',
+        title: 'صلاحية غير كافية 🚫',
+        message: 'فقط المدير العام ومسؤول ميديا أو كاتب المقال يمكنهم حذف هذا المنشور الإعلامي.',
+      });
+      return { success: false, message: 'غير مصرح لك بحذف هذا المنشور.' };
+    }
+
+    setBlogPosts(prev => prev.filter(p => p.id !== postId));
+    showToast({
+      type: 'info',
+      title: 'تم حذف منشور ميديا 🗑️',
+      message: `تم حذف المنشور "${existing.title}" بنجاح.`,
+    });
+    return { success: true, message: 'تم حذف المنشور بنجاح' };
+  };
+
   // Toggle like post
   const toggleLikePost = (postId: string) => {
     setBlogPosts(prev => prev.map(p => {
@@ -1220,8 +1410,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const isShamsAdmin = currentUser.username === 'riyad' || currentUser.id === 'admin-gen-1' || currentUser.role === 'general_admin';
-
   // Submissions for a specific activity
   const getActivitySubmissions = (activityId: string) => {
     return submissions.filter(s => s.activityId === activityId);
@@ -1311,15 +1499,42 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const deletePost = (postId: string) => {
+    const target = posts.find(p => p.id === postId);
+    if (!target) return { success: false, message: 'المنشور غير موجود' };
+
+    const canDelete = canManageAllContent || target.authorId === currentUser.id;
+    if (!canDelete) {
+      showToast({
+        type: 'error',
+        title: 'صلاحية غير كافية 🚫',
+        message: 'فقط صاحب المنشور أو المدير العام ومسؤول ميديا يمكنهم حذف هذا المنشور.',
+      });
+      return { success: false, message: 'غير مصرح' };
+    }
+
     setPosts(prev => prev.filter(p => p.id !== postId));
     showToast({
       type: 'info',
-      title: 'تم حذف المنشور',
+      title: 'تم حذف المنشور 🗑️',
       message: 'تمت إزالة المنشور بنجاح.',
     });
+    return { success: true, message: 'تم الحذف بنجاح' };
   };
 
   const editPost = (postId: string, payload: { content: string; imageUrl?: string; activityTag?: string }) => {
+    const target = posts.find(p => p.id === postId);
+    if (!target) return { success: false, message: 'المنشور غير موجود' };
+
+    const canEdit = canManageAllContent || target.authorId === currentUser.id;
+    if (!canEdit) {
+      showToast({
+        type: 'error',
+        title: 'صلاحية غير كافية 🚫',
+        message: 'فقط صاحب المنشور أو المدير العام ومسؤول ميديا يمكنهم تعديل هذا المنشور.',
+      });
+      return { success: false, message: 'غير مصرح' };
+    }
+
     if (!payload.content.trim()) {
       return { success: false, message: 'يرجى كتابة نص المنشور.' };
     }
@@ -1337,7 +1552,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showToast({
       type: 'success',
       title: 'تم تعديل المنشور بنجاح! ✏️',
-      message: 'تم حفظ كافة التعديلات على المنشور والصورة.',
+      message: 'تم حفظ كافة التعديلات على المنشور وتحديث الصورة.',
     });
 
     return { success: true, message: 'تم تعديل المنشور بنجاح' };
@@ -1624,6 +1839,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         getUserSubscribersCount,
         getUserSubscriptionsCount,
         addActivity,
+        updateActivity,
+        deleteActivity,
         applyToActivity,
         submitProof,
         evaluateSubmission,
@@ -1631,12 +1848,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         deleteClub,
         enrollClubInActivity,
         deleteUserAccount,
+        toggleBanUser,
         addBlogPost,
+        updateBlogPost,
+        deleteBlogPost,
         toggleLikePost,
         toggleBlogPostReaction,
         addBlogPostComment,
         repostToProfile,
         isShamsAdmin,
+        canManageAllContent,
         toasts,
         removeToast,
         showToast,

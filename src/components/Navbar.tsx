@@ -409,126 +409,156 @@ export const Navbar: React.FC<NavbarProps> = ({
 
       {/* Main Responsive Tabs Bar - Always Visible on All Viewports */}
       <div className="bg-slate-50/90 border-t border-slate-200/80 px-2 sm:px-6 lg:px-8 py-1.5">
-        <div className="max-w-7xl mx-auto flex items-center gap-1.5 sm:gap-2 overflow-x-auto scrollbar-none py-0.5">
-          
-          {/* Tab 0: General Feed (اللوحة العامة إنستغرام) */}
-          <button
-            onClick={() => handleSelectTab('feed')}
-            className={`flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer shrink-0 ${
-              activeTab === 'feed'
-                ? 'bg-gradient-to-r from-emerald-600 to-teal-700 text-white shadow-sm'
-                : 'bg-white text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 border border-slate-200/60'
-            }`}
-          >
-            <LayoutGrid className={`w-4 h-4 ${activeTab === 'feed' ? 'text-amber-300' : 'text-emerald-600'}`} />
-            <span>اللوحة العامة (Feed)</span>
-            <span className="px-1.5 py-0.2 rounded-full text-[9px] font-black bg-amber-400 text-slate-950">
-              جديد
-            </span>
-          </button>
+        {!isLoggedIn ? (
+          /* Guest View: EXACT REQUIREMENT - Show ONLY Posts and Volunteer Projects */
+          <div className="max-w-md mx-auto grid grid-cols-2 gap-2 w-full py-0.5">
+            {/* Tab: Feed (المنشورات) */}
+            <button
+              onClick={() => handleSelectTab('feed')}
+              className={`flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs sm:text-sm font-black transition cursor-pointer ${
+                activeTab === 'feed'
+                  ? 'bg-gradient-to-r from-emerald-600 to-teal-700 text-white shadow-sm'
+                  : 'bg-white text-slate-700 hover:bg-emerald-50 hover:text-emerald-800 border border-slate-200'
+              }`}
+            >
+              <LayoutGrid className={`w-4 h-4 ${activeTab === 'feed' ? 'text-amber-300' : 'text-emerald-600'}`} />
+              <span>المنشورات المجتمعية</span>
+            </button>
 
-          {/* Tab 1: Activities */}
-          <button
-            onClick={() => handleSelectTab('activities')}
-            className={`flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer shrink-0 ${
-              activeTab === 'activities'
-                ? 'bg-emerald-700 text-white shadow-sm'
-                : 'bg-white text-slate-700 hover:bg-slate-100 hover:text-slate-900 border border-slate-200/60'
-            }`}
-          >
-            <Compass className={`w-4 h-4 ${activeTab === 'activities' ? 'text-white' : 'text-emerald-600'}`} />
-            <span>النشاطات والمشاريع</span>
-          </button>
-
-          {/* Tab 2: Leaderboard */}
-          <button
-            onClick={() => handleSelectTab('leaderboard')}
-            className={`flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer shrink-0 ${
-              activeTab === 'leaderboard'
-                ? 'bg-amber-500 text-slate-950 shadow-sm'
-                : 'bg-white text-slate-700 hover:bg-slate-100 hover:text-slate-900 border border-slate-200/60'
-            }`}
-          >
-            <Trophy className={`w-4 h-4 ${activeTab === 'leaderboard' ? 'text-slate-950' : 'text-amber-500'}`} />
-            <span>المتصدرين والجوائز</span>
-          </button>
-
-          {/* Tab 3: Evaluation Queue (Always accessible) */}
-          <button
-            onClick={() => handleSelectTab('evaluator')}
-            className={`relative flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer shrink-0 ${
-              activeTab === 'evaluator'
-                ? 'bg-rose-700 text-white shadow-sm'
-                : 'bg-white text-rose-700 hover:bg-rose-50 border border-rose-200/60'
-            }`}
-          >
-            <ShieldCheck className="w-4 h-4" />
-            <span>تقييم الإثباتات</span>
-            {pendingReviewsCount > 0 && (
-              <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-black ${
-                activeTab === 'evaluator' ? 'bg-white text-rose-700' : 'bg-rose-600 text-white animate-pulse'
-              }`}>
-                {pendingReviewsCount}
+            {/* Tab: Activities (المشاريع التطوعية) */}
+            <button
+              onClick={() => handleSelectTab('activities')}
+              className={`flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs sm:text-sm font-black transition cursor-pointer ${
+                activeTab === 'activities'
+                  ? 'bg-emerald-700 text-white shadow-sm'
+                  : 'bg-white text-slate-700 hover:bg-slate-100 hover:text-slate-900 border border-slate-200'
+              }`}
+            >
+              <Compass className={`w-4 h-4 ${activeTab === 'activities' ? 'text-white' : 'text-emerald-600'}`} />
+              <span>المشاريع التطوعية</span>
+            </button>
+          </div>
+        ) : (
+          /* Authenticated User View: All tabs */
+          <div className="max-w-7xl mx-auto flex items-center gap-1.5 sm:gap-2 overflow-x-auto scrollbar-none py-0.5">
+            {/* Tab 0: General Feed (اللوحة العامة إنستغرام) */}
+            <button
+              onClick={() => handleSelectTab('feed')}
+              className={`flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer shrink-0 ${
+                activeTab === 'feed'
+                  ? 'bg-gradient-to-r from-emerald-600 to-teal-700 text-white shadow-sm'
+                  : 'bg-white text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 border border-slate-200/60'
+              }`}
+            >
+              <LayoutGrid className={`w-4 h-4 ${activeTab === 'feed' ? 'text-amber-300' : 'text-emerald-600'}`} />
+              <span>اللوحة العامة (Feed)</span>
+              <span className="px-1.5 py-0.2 rounded-full text-[9px] font-black bg-amber-400 text-slate-950">
+                جديد
               </span>
-            )}
-          </button>
+            </button>
 
-          {/* Tab 4: Institutions & Clubs */}
-          <button
-            onClick={() => handleSelectTab('institutions')}
-            className={`flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer shrink-0 ${
-              activeTab === 'institutions'
-                ? 'bg-blue-700 text-white shadow-sm'
-                : 'bg-white text-slate-700 hover:bg-slate-100 hover:text-slate-900 border border-slate-200/60'
-            }`}
-          >
-            <Building2 className={`w-4 h-4 ${activeTab === 'institutions' ? 'text-white' : 'text-blue-600'}`} />
-            <span>الهياكل والنوادي</span>
-          </button>
+            {/* Tab 1: Activities */}
+            <button
+              onClick={() => handleSelectTab('activities')}
+              className={`flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer shrink-0 ${
+                activeTab === 'activities'
+                  ? 'bg-emerald-700 text-white shadow-sm'
+                  : 'bg-white text-slate-700 hover:bg-slate-100 hover:text-slate-900 border border-slate-200/60'
+              }`}
+            >
+              <Compass className={`w-4 h-4 ${activeTab === 'activities' ? 'text-white' : 'text-emerald-600'}`} />
+              <span>النشاطات والمشاريع</span>
+            </button>
 
-          {/* Tab 5: Media */}
-          <button
-            onClick={() => handleSelectTab('media')}
-            className={`flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer shrink-0 ${
-              activeTab === 'media'
-                ? 'bg-teal-700 text-white shadow-sm'
-                : 'bg-white text-slate-700 hover:bg-slate-100 hover:text-slate-900 border border-slate-200/60'
-            }`}
-          >
-            <Newspaper className={`w-4 h-4 ${activeTab === 'media' ? 'text-white' : 'text-teal-600'}`} />
-            <span>شمس ميديا</span>
-          </button>
+            {/* Tab 2: Leaderboard */}
+            <button
+              onClick={() => handleSelectTab('leaderboard')}
+              className={`flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer shrink-0 ${
+                activeTab === 'leaderboard'
+                  ? 'bg-amber-500 text-slate-950 shadow-sm'
+                  : 'bg-white text-slate-700 hover:bg-slate-100 hover:text-slate-900 border border-slate-200/60'
+              }`}
+            >
+              <Trophy className={`w-4 h-4 ${activeTab === 'leaderboard' ? 'text-slate-950' : 'text-amber-500'}`} />
+              <span>المتصدرين والجوائز</span>
+            </button>
 
-          {/* Tab 6: Profile & Posts */}
-          <button
-            onClick={() => {
-              handleSelectTab('profile');
-              if (onOpenProfile) onOpenProfile();
-            }}
-            className={`flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer shrink-0 ${
-              activeTab === 'profile'
-                ? 'bg-emerald-800 text-white shadow-sm'
-                : 'bg-white text-slate-700 hover:bg-slate-100 hover:text-slate-900 border border-slate-200/60'
-            }`}
-          >
-            <User className={`w-4 h-4 ${activeTab === 'profile' ? 'text-white' : 'text-emerald-700'}`} />
-            <span>البروفايل والمنشورات</span>
-          </button>
+            {/* Tab 3: Evaluation Queue (Always accessible) */}
+            <button
+              onClick={() => handleSelectTab('evaluator')}
+              className={`relative flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer shrink-0 ${
+                activeTab === 'evaluator'
+                  ? 'bg-rose-700 text-white shadow-sm'
+                  : 'bg-white text-rose-700 hover:bg-rose-50 border border-rose-200/60'
+              }`}
+            >
+              <ShieldCheck className="w-4 h-4" />
+              <span>تقييم الإثباتات</span>
+              {pendingReviewsCount > 0 && (
+                <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-black ${
+                  activeTab === 'evaluator' ? 'bg-white text-rose-700' : 'bg-rose-600 text-white animate-pulse'
+                }`}>
+                  {pendingReviewsCount}
+                </span>
+              )}
+            </button>
 
-          {/* Tab 7: Workspace */}
-          <button
-            onClick={() => handleSelectTab('workspace')}
-            className={`flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer shrink-0 ${
-              activeTab === 'workspace'
-                ? 'bg-slate-900 text-white shadow-sm'
-                : 'bg-white text-slate-700 hover:bg-slate-100 hover:text-slate-900 border border-slate-200/60'
-            }`}
-          >
-            <Layers className={`w-4 h-4 ${activeTab === 'workspace' ? 'text-white' : 'text-slate-600'}`} />
-            <span>مساحة المهام والإثباتات</span>
-          </button>
+            {/* Tab 4: Institutions & Clubs */}
+            <button
+              onClick={() => handleSelectTab('institutions')}
+              className={`flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer shrink-0 ${
+                activeTab === 'institutions'
+                  ? 'bg-blue-700 text-white shadow-sm'
+                  : 'bg-white text-slate-700 hover:bg-slate-100 hover:text-slate-900 border border-slate-200/60'
+              }`}
+            >
+              <Building2 className={`w-4 h-4 ${activeTab === 'institutions' ? 'text-white' : 'text-blue-600'}`} />
+              <span>الهياكل والنوادي</span>
+            </button>
 
-        </div>
+            {/* Tab 5: Media */}
+            <button
+              onClick={() => handleSelectTab('media')}
+              className={`flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer shrink-0 ${
+                activeTab === 'media'
+                  ? 'bg-teal-700 text-white shadow-sm'
+                  : 'bg-white text-slate-700 hover:bg-slate-100 hover:text-slate-900 border border-slate-200/60'
+              }`}
+            >
+              <Newspaper className={`w-4 h-4 ${activeTab === 'media' ? 'text-white' : 'text-teal-600'}`} />
+              <span>شمس ميديا</span>
+            </button>
+
+            {/* Tab 6: Profile & Posts */}
+            <button
+              onClick={() => {
+                handleSelectTab('profile');
+                if (onOpenProfile) onOpenProfile();
+              }}
+              className={`flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer shrink-0 ${
+                activeTab === 'profile'
+                  ? 'bg-emerald-800 text-white shadow-sm'
+                  : 'bg-white text-slate-700 hover:bg-slate-100 hover:text-slate-900 border border-slate-200/60'
+              }`}
+            >
+              <User className={`w-4 h-4 ${activeTab === 'profile' ? 'text-white' : 'text-emerald-700'}`} />
+              <span>البروفايل والمنشورات</span>
+            </button>
+
+            {/* Tab 7: Workspace */}
+            <button
+              onClick={() => handleSelectTab('workspace')}
+              className={`flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer shrink-0 ${
+                activeTab === 'workspace'
+                  ? 'bg-slate-900 text-white shadow-sm'
+                  : 'bg-white text-slate-700 hover:bg-slate-100 hover:text-slate-900 border border-slate-200/60'
+              }`}
+            >
+              <Layers className={`w-4 h-4 ${activeTab === 'workspace' ? 'text-white' : 'text-slate-600'}`} />
+              <span>مساحة المهام والإثباتات</span>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Real-time Notification Center Modal / Dropdown */}

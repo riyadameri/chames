@@ -21,6 +21,7 @@ import {
   Tag
 } from 'lucide-react';
 import { RichTextRenderer } from './RichTextRenderer';
+import { saveImageToFileSystem } from '../utils/fileStorage';
 
 interface RichPostPublisherProps {
   onPublishSuccess?: () => void;
@@ -206,7 +207,7 @@ export const RichPostPublisher: React.FC<RichPostPublisherProps> = ({
   };
 
   // Handle local image file upload
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -219,20 +220,27 @@ export const RichPostPublisher: React.FC<RichPostPublisherProps> = ({
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = (loadEvent) => {
-      const result = loadEvent.target?.result as string;
-      if (result) {
-        setImageUrl(result);
-        setShowMediaDrawer(false);
-        showToast({
-          type: 'success',
-          title: 'تم تحميل الصورة',
-          message: 'تم إرفاق الصورة بنجاح للمنشور'
-        });
-      }
-    };
-    reader.readAsDataURL(file);
+    try {
+      const { dataUrl, record } = await saveImageToFileSystem(file, 'post');
+      setImageUrl(dataUrl);
+      setShowMediaDrawer(false);
+      showToast({
+        type: 'success',
+        title: 'تم حفظ الصورة في الملفات 📁',
+        message: `تم حفظ "${record.name}" في مكتبة ملفات المنصة وإرفاقها للمنشور.`
+      });
+    } catch (err) {
+      console.error(err);
+      const reader = new FileReader();
+      reader.onload = (loadEvent) => {
+        const result = loadEvent.target?.result as string;
+        if (result) {
+          setImageUrl(result);
+          setShowMediaDrawer(false);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   // Handle Post Creation

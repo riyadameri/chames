@@ -164,24 +164,24 @@ export const UserWorkspaceView: React.FC<UserWorkspaceViewProps> = ({
           </div>
 
           {/* Quick Points & Stats counter */}
-          <div className="grid grid-cols-3 gap-3 w-full md:w-auto">
-            <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-center min-w-28">
-              <span className="text-[11px] text-amber-900 font-bold block">رصيد النقاط</span>
-              <span className="text-xl font-black text-amber-600 font-mono">
+          <div className="grid grid-cols-3 gap-2 sm:gap-3 w-full md:w-auto">
+            <div className="p-2.5 sm:p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-center min-w-0">
+              <span className="text-[10px] sm:text-[11px] text-amber-900 font-bold block truncate">رصيد النقاط</span>
+              <span className="text-lg sm:text-xl font-black text-amber-600 font-mono">
                 {currentUser.points.toLocaleString()}
               </span>
             </div>
 
-            <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-center min-w-28">
-              <span className="text-[11px] text-emerald-900 font-bold block">المهام المعتمدة</span>
-              <span className="text-xl font-black text-emerald-600 font-mono">
+            <div className="p-2.5 sm:p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-center min-w-0">
+              <span className="text-[10px] sm:text-[11px] text-emerald-900 font-bold block truncate">المهام المعتمدة</span>
+              <span className="text-lg sm:text-xl font-black text-emerald-600 font-mono">
                 {approvedSubmissions.length}
               </span>
             </div>
 
-            <div className="p-3.5 rounded-2xl bg-blue-50 border border-blue-200 text-center min-w-28">
-              <span className="text-[11px] text-blue-900 font-bold block">ساعات التطوع</span>
-              <span className="text-xl font-black text-blue-600 font-mono">
+            <div className="p-2.5 sm:p-3.5 rounded-2xl bg-blue-50 border border-blue-200 text-center min-w-0">
+              <span className="text-[10px] sm:text-[11px] text-blue-900 font-bold block truncate">ساعات التطوع</span>
+              <span className="text-lg sm:text-xl font-black text-blue-600 font-mono">
                 {currentUser.hoursVolunteered || approvedSubmissions.length * 4} س
               </span>
             </div>

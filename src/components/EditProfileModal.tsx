@@ -16,6 +16,7 @@ import {
   RotateCcw
 } from 'lucide-react';
 import { ALGERIAN_WILAYAS } from '../data/mockData';
+import { saveImageToFileSystem } from '../utils/fileStorage';
 
 interface EditProfileModalProps {
   onClose: () => void;
@@ -79,35 +80,41 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
   const coverFileRef = useRef<HTMLInputElement>(null);
 
   // Handle local image file upload for avatar
-  const handleAvatarFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 5 * 1024 * 1024) {
+    if (file.size > 8 * 1024 * 1024) {
       showToast({
         type: 'warning',
         title: 'حجم الصورة كبير',
-        message: 'يرجى اختيار صورة بحجم أقل من 5 ميغابايت.'
+        message: 'يرجى اختيار صورة بحجم أقل من 8 ميغابايت.'
       });
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      if (typeof event.target?.result === 'string') {
-        setAvatar(event.target.result);
-        showToast({
-          type: 'success',
-          title: 'تم تحميل صورتك بنجاح! 📸',
-          message: 'انقر على حفظ لتطبيق الصورة الشخصية الجديدة.'
-        });
-      }
-    };
-    reader.readAsDataURL(file);
+    try {
+      const { dataUrl, record } = await saveImageToFileSystem(file, 'profile');
+      setAvatar(dataUrl);
+      showToast({
+        type: 'success',
+        title: 'تم حفظ الصورة الشخصية في الملفات! 📸',
+        message: `تم تخزين "${record.name}" في مكتبة ملفات النظام بنجاح.`
+      });
+    } catch (err) {
+      console.error(err);
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        if (typeof event.target?.result === 'string') {
+          setAvatar(event.target.result);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   // Handle local image file upload for cover
-  const handleCoverFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCoverFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -120,18 +127,24 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      if (typeof event.target?.result === 'string') {
-        setCoverImage(event.target.result);
-        showToast({
-          type: 'success',
-          title: 'تم تحميل صورة الغلاف بنجاح! 🖼️',
-          message: 'انقر على حفظ لتطبيق صورة الغلاف الجديدة في حسابك.'
-        });
-      }
-    };
-    reader.readAsDataURL(file);
+    try {
+      const { dataUrl, record } = await saveImageToFileSystem(file, 'profile');
+      setCoverImage(dataUrl);
+      showToast({
+        type: 'success',
+        title: 'تم حفظ صورة الغلاف في الملفات! 🖼️',
+        message: `تم تخزين "${record.name}" في مكتبة ملفات النظام بنجاح.`
+      });
+    } catch (err) {
+      console.error(err);
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        if (typeof event.target?.result === 'string') {
+          setCoverImage(event.target.result);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {

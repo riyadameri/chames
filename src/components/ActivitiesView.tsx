@@ -14,21 +14,25 @@ import {
   CheckCircle2, 
   Calendar,
   Layers,
-  Compass
+  Compass,
+  Edit3,
+  Trash2
 } from 'lucide-react';
 
 interface ActivitiesViewProps {
   onSelectActivity: (activity: Activity) => void;
   onOpenSubmitProof: (submissionId: string) => void;
   onOpenCreateActivity: () => void;
+  onEditActivity?: (activity: Activity) => void;
 }
 
 export const ActivitiesView: React.FC<ActivitiesViewProps> = ({
   onSelectActivity,
   onOpenSubmitProof,
   onOpenCreateActivity,
+  onEditActivity,
 }) => {
-  const { activities, submissions, currentUser, applyToActivity } = useApp();
+  const { activities, submissions, currentUser, applyToActivity, deleteActivity, isShamsAdmin, canManageAllContent } = useApp();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTarget, setSelectedTarget] = useState<TargetAudience | 'all_filter'>('all_filter');
@@ -99,10 +103,10 @@ export const ActivitiesView: React.FC<ActivitiesViewProps> = ({
           </div>
 
           {/* Quick Target Audience Tabs (الجمهور المستهدف: الجميع / أفراد / مؤسسات) */}
-          <div className="flex items-center gap-1.5 bg-slate-100 p-1.5 rounded-2xl w-full md:w-auto">
+          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-2xl w-full md:w-auto overflow-x-auto scrollbar-none">
             <button
               onClick={() => setSelectedTarget('all_filter')}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex-1 md:flex-initial ${
+              className={`px-3 py-1.5 rounded-xl text-[11px] sm:text-xs font-bold transition whitespace-nowrap flex-1 md:flex-initial text-center ${
                 selectedTarget === 'all_filter'
                   ? 'bg-white text-slate-900 shadow-xs'
                   : 'text-slate-600 hover:text-slate-900'
@@ -113,26 +117,26 @@ export const ActivitiesView: React.FC<ActivitiesViewProps> = ({
 
             <button
               onClick={() => setSelectedTarget('individuals')}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex-1 md:flex-initial flex items-center justify-center gap-1 ${
+              className={`px-3 py-1.5 rounded-xl text-[11px] sm:text-xs font-bold transition whitespace-nowrap flex-1 md:flex-initial flex items-center justify-center gap-1 ${
                 selectedTarget === 'individuals'
                   ? 'bg-emerald-600 text-white shadow-xs'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              <Users className="w-3.5 h-3.5" />
+              <Users className="w-3.5 h-3.5 shrink-0" />
               <span>للأفراد</span>
             </button>
 
             <button
               onClick={() => setSelectedTarget('institutions')}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex-1 md:flex-initial flex items-center justify-center gap-1 ${
+              className={`px-3 py-1.5 rounded-xl text-[11px] sm:text-xs font-bold transition whitespace-nowrap flex-1 md:flex-initial flex items-center justify-center gap-1 ${
                 selectedTarget === 'institutions'
                   ? 'bg-blue-600 text-white shadow-xs'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              <Building2 className="w-3.5 h-3.5" />
-              <span>للمؤسسات والنوادي</span>
+              <Building2 className="w-3.5 h-3.5 shrink-0" />
+              <span>مؤسسات ونوادي</span>
             </button>
           </div>
 
@@ -251,6 +255,8 @@ export const ActivitiesView: React.FC<ActivitiesViewProps> = ({
               s => s.activityId === activity.id && s.userId === currentUser.id
             );
 
+            const canManageActivity = canManageAllContent || isShamsAdmin || currentUser.role === 'general_admin' || currentUser.role === 'media_admin' || (currentUser.role === 'institution_admin' && (activity.creatorRole === 'institution_admin' || activity.institutionId === currentUser.affiliatedInstitutionId));
+
             return (
               <div
                 key={activity.id}
@@ -270,31 +276,32 @@ export const ActivitiesView: React.FC<ActivitiesViewProps> = ({
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent"></div>
 
-                  {/* Target Audience Badge */}
-                  <div className="absolute top-3 right-3 flex flex-wrap gap-1.5">
-                    <span className="px-2.5 py-1 rounded-xl text-[10px] font-bold bg-white/90 text-slate-900 backdrop-blur-md shadow-xs">
-                      {getCategoryLabel(activity.category)}
-                    </span>
-                    <span className={`px-2.5 py-1 rounded-xl text-[10px] font-black text-white shadow-xs ${
-                      activity.targetAudience === 'individuals'
-                        ? 'bg-emerald-600'
-                        : activity.targetAudience === 'institutions'
-                        ? 'bg-blue-600'
-                        : 'bg-purple-600'
-                    }`}>
-                      {activity.targetAudience === 'individuals' && 'أفراد'}
-                      {activity.targetAudience === 'institutions' && 'مؤسسات ونوادي'}
-                      {activity.targetAudience === 'all' && 'للجميع'}
-                    </span>
-                  </div>
+                  {/* Top Badges Bar: Right (Category & Audience) and Left (Points) */}
+                  <div className="absolute top-2.5 inset-x-2.5 flex items-start justify-between gap-1.5 pointer-events-none">
+                    <div className="flex flex-wrap items-center gap-1 max-w-[65%]">
+                      <span className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-white/95 text-slate-900 backdrop-blur-md shadow-xs truncate">
+                        {getCategoryLabel(activity.category)}
+                      </span>
+                      <span className={`px-2 py-0.5 rounded-lg text-[10px] font-black text-white shadow-xs ${
+                        activity.targetAudience === 'individuals'
+                          ? 'bg-emerald-600'
+                          : activity.targetAudience === 'institutions'
+                          ? 'bg-blue-600'
+                          : 'bg-purple-600'
+                      }`}>
+                        {activity.targetAudience === 'individuals' && 'أفراد'}
+                        {activity.targetAudience === 'institutions' && 'مؤسسات'}
+                        {activity.targetAudience === 'all' && 'للجميع'}
+                      </span>
+                    </div>
 
-                  {/* Points badge */}
-                  <div className="absolute top-3 left-3">
-                    <span className="px-3 py-1 rounded-xl text-xs font-black bg-amber-500 text-slate-950 shadow-md flex items-center gap-1 font-mono">
-                      <Sparkles className="w-3.5 h-3.5 text-slate-950" />
-                      +{activity.basePoints} نقطة
-                      {activity.pointsPerUnit && ` (+${activity.pointsPerUnit}/${activity.unitName?.slice(0, 4) || 'وحدة'})`}
-                    </span>
+                    <div className="shrink-0">
+                      <span className="px-2.5 py-0.5 rounded-lg text-[11px] font-black bg-amber-500 text-slate-950 shadow-md flex items-center gap-1 font-mono whitespace-nowrap">
+                        <Sparkles className="w-3 h-3 text-slate-950 shrink-0" />
+                        <span>+{activity.basePoints} ن</span>
+                        {activity.pointsPerUnit && <span className="text-[10px] opacity-80">(+{activity.pointsPerUnit})</span>}
+                      </span>
+                    </div>
                   </div>
 
                   {/* Wilaya pill */}
@@ -393,6 +400,33 @@ export const ActivitiesView: React.FC<ActivitiesViewProps> = ({
                     >
                       التفاصيل
                     </button>
+
+                    {canManageActivity && (
+                      <div className="flex items-center gap-1 border-r border-slate-200 pr-2 mr-1">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onEditActivity?.(activity);
+                          }}
+                          className="p-2 rounded-xl bg-slate-100 hover:bg-emerald-50 text-slate-600 hover:text-emerald-700 transition"
+                          title="تعديل بيانات النشاط واستبدال الصورة"
+                        >
+                          <Edit3 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (window.confirm(`هل أنت متأكد من حذف النشاط التطوعي "${activity.title}"؟`)) {
+                              deleteActivity(activity.id);
+                            }
+                          }}
+                          className="p-2 rounded-xl bg-slate-100 hover:bg-red-50 text-slate-600 hover:text-red-700 transition"
+                          title="حذف النشاط التطوعي"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
 
                   </div>
 

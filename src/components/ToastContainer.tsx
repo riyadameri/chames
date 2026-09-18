@@ -20,7 +20,7 @@ export const ToastContainer: React.FC = () => {
                 ? 'border-amber-400 bg-gradient-to-r from-amber-50 to-orange-50 text-amber-950'
                 : toast.type === 'success'
                 ? 'border-emerald-300 bg-emerald-50 text-emerald-950'
-                : toast.type === 'warning'
+                : toast.type === 'warning' || toast.type === 'error'
                 ? 'border-rose-300 bg-rose-50 text-rose-950'
                 : 'border-blue-300 bg-blue-50 text-blue-950'
             }`}
@@ -34,7 +34,7 @@ export const ToastContainer: React.FC = () => {
                 <div className="w-8 h-8 rounded-full bg-emerald-600 text-white flex items-center justify-center">
                   <CheckCircle2 className="w-5 h-5" />
                 </div>
-              ) : toast.type === 'warning' ? (
+              ) : toast.type === 'warning' || toast.type === 'error' ? (
                 <div className="w-8 h-8 rounded-full bg-rose-600 text-white flex items-center justify-center">
                   <AlertCircle className="w-5 h-5" />
                 </div>

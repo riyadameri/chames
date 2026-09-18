@@ -11,6 +11,7 @@ import {
   Edit3,
   AlertCircle
 } from 'lucide-react';
+import { saveImageToFileSystem } from '../utils/fileStorage';
 
 interface EditPostModalProps {
   post: UserPost;
@@ -34,7 +35,7 @@ export const EditPostModal: React.FC<EditPostModalProps> = ({ post, onClose }) =
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -47,19 +48,25 @@ export const EditPostModal: React.FC<EditPostModalProps> = ({ post, onClose }) =
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      if (typeof event.target?.result === 'string') {
-        setImageUrl(event.target.result);
-        setShowMediaOptions(false);
-        showToast({
-          type: 'success',
-          title: 'تم اختيار صورتك الخاصة! 📸',
-          message: 'تم تعيين الصورة للمنشور بنجاح.'
-        });
-      }
-    };
-    reader.readAsDataURL(file);
+    try {
+      const { dataUrl } = await saveImageToFileSystem(file, 'post');
+      setImageUrl(dataUrl);
+      setShowMediaOptions(false);
+      showToast({
+        type: 'success',
+        title: 'تم حفظ الصورة في الملفات بنجاح! 📸',
+        message: 'تم تخزين صورة المنشور في مكتبة ملفات المنصة وتطبيقها.'
+      });
+    } catch (err) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        if (typeof event.target?.result === 'string') {
+          setImageUrl(event.target.result);
+          setShowMediaOptions(false);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const handleSave = (e: React.FormEvent) => {

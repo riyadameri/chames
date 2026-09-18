@@ -37,11 +37,21 @@ const AppContent: React.FC = () => {
     season, 
     authModalState, 
     openAuthModal, 
-    closeAuthModal 
+    closeAuthModal,
+    isLoggedIn
   } = useApp();
 
   const [activeTab, setActiveTab] = useState<string>('activities');
+
+  // Enforce guest constraint: when logged out, only 'feed' and 'activities' are allowed
+  React.useEffect(() => {
+    if (!isLoggedIn && activeTab !== 'activities' && activeTab !== 'feed') {
+      setActiveTab('activities');
+    }
+  }, [isLoggedIn, activeTab]);
+
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
+  const [activityToEdit, setActivityToEdit] = useState<Activity | null>(null);
   const [submissionIdForProof, setSubmissionIdForProof] = useState<string | null>(null);
   const [showCreateActivityModal, setShowCreateActivityModal] = useState<boolean>(false);
   const [viewingProfileUser, setViewingProfileUser] = useState<User | null>(null);
@@ -62,7 +72,7 @@ const AppContent: React.FC = () => {
   );
 
   return (
-    <div className="min-h-screen bg-slate-100/70 text-slate-800 font-sans selection:bg-emerald-500 selection:text-white" dir="rtl">
+    <div className="min-h-screen bg-slate-100/70 text-slate-800 font-sans selection:bg-emerald-500 selection:text-white overflow-x-hidden max-w-full w-full" dir="rtl">
       
       {/* Toast Notifications */}
       <ToastContainer />
@@ -131,6 +141,7 @@ const AppContent: React.FC = () => {
             onSelectActivity={(act) => setSelectedActivity(act)}
             onOpenSubmitProof={(subId) => setSubmissionIdForProof(subId)}
             onOpenCreateActivity={() => setShowCreateActivityModal(true)}
+            onEditActivity={(act) => setActivityToEdit(act)}
           />
         )}
 
@@ -326,6 +337,10 @@ const AppContent: React.FC = () => {
           activity={selectedActivity}
           onClose={() => setSelectedActivity(null)}
           onOpenSubmitProof={(subId) => setSubmissionIdForProof(subId)}
+          onEditActivity={(act) => {
+            setSelectedActivity(null);
+            setActivityToEdit(act);
+          }}
         />
       )}
 
@@ -336,9 +351,13 @@ const AppContent: React.FC = () => {
         />
       )}
 
-      {showCreateActivityModal && (
+      {(showCreateActivityModal || activityToEdit) && (
         <CreateActivityModal 
-          onClose={() => setShowCreateActivityModal(false)}
+          activityToEdit={activityToEdit || undefined}
+          onClose={() => {
+            setShowCreateActivityModal(false);
+            setActivityToEdit(null);
+          }}
         />
       )}
 

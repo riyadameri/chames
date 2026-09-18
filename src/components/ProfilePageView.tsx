@@ -65,6 +65,8 @@ export const ProfilePageView: React.FC<ProfilePageViewProps> = ({
     isSubscribedTo, 
     getUserSubscribersCount, 
     getUserSubscriptionsCount,
+    isShamsAdmin,
+    canManageAllContent,
     showToast 
   } = useApp();
 
@@ -659,8 +661,8 @@ export const ProfilePageView: React.FC<ProfilePageViewProps> = ({
                         </div>
                       </div>
 
-                      {/* Edit & Delete post options if owner */}
-                      {isPostAuthor && (
+                      {/* Edit & Delete post options: owner, or media_admin, or general_admin */}
+                      {(isPostAuthor || canManageAllContent || isShamsAdmin || currentUser.role === 'general_admin' || currentUser.role === 'media_admin') && (
                         <div className="flex items-center gap-1">
                           <button
                             onClick={() => setEditingPost(post)}
@@ -670,7 +672,11 @@ export const ProfilePageView: React.FC<ProfilePageViewProps> = ({
                             <Edit3 className="w-4 h-4" />
                           </button>
                           <button
-                            onClick={() => deletePost(post.id)}
+                            onClick={() => {
+                              if (window.confirm('هل أنت متأكد من حذف هذا المنشور؟')) {
+                                deletePost(post.id);
+                              }
+                            }}
                             title="حذف المنشور"
                             className="p-1.5 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
                           >

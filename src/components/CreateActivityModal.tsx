@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { useApp } from '../context/AppContext';
-import { ActivityCategory, TargetAudience } from '../types';
+import { Activity, ActivityCategory, TargetAudience } from '../types';
 import { 
   X, 
   Plus, 
@@ -12,35 +12,38 @@ import {
   Sparkles, 
   Trash2,
   Image as ImageIcon,
-  Upload
+  Upload,
+  Edit3
 } from 'lucide-react';
+import { saveImageToFileSystem } from '../utils/fileStorage';
 
 interface CreateActivityModalProps {
   onClose: () => void;
+  activityToEdit?: Activity;
 }
 
-export const CreateActivityModal: React.FC<CreateActivityModalProps> = ({ onClose }) => {
-  const { currentUser, addActivity } = useApp();
+export const CreateActivityModal: React.FC<CreateActivityModalProps> = ({ onClose, activityToEdit }) => {
+  const { currentUser, addActivity, updateActivity, showToast } = useApp();
 
-  const [title, setTitle] = useState('');
-  const [shortDesc, setShortDesc] = useState('');
-  const [fullDesc, setFullDesc] = useState('');
-  const [category, setCategory] = useState<ActivityCategory>('environment');
-  const [targetAudience, setTargetAudience] = useState<TargetAudience>('all');
+  const [title, setTitle] = useState(activityToEdit?.title || '');
+  const [shortDesc, setShortDesc] = useState(activityToEdit?.shortDescription || '');
+  const [fullDesc, setFullDesc] = useState(activityToEdit?.fullDescription || '');
+  const [category, setCategory] = useState<ActivityCategory>(activityToEdit?.category || 'environment');
+  const [targetAudience, setTargetAudience] = useState<TargetAudience>(activityToEdit?.targetAudience || 'all');
   
   // Specific constraints requested in prompt:
-  const [requiresPhotos, setRequiresPhotos] = useState(true);
-  const [requiresLocation, setRequiresLocation] = useState(true);
-  const [allowMultipleProof, setAllowMultipleProof] = useState(true); // e.g. tree challenge
-  const [unitName, setUnitName] = useState('شجرة مغروسة');
-  const [basePoints, setBasePoints] = useState(150);
-  const [pointsPerUnit, setPointsPerUnit] = useState(25);
+  const [requiresPhotos, setRequiresPhotos] = useState(activityToEdit?.requiresPhotos ?? true);
+  const [requiresLocation, setRequiresLocation] = useState(activityToEdit?.requiresLocation ?? true);
+  const [allowMultipleProof, setAllowMultipleProof] = useState(activityToEdit?.allowMultipleProof ?? true); // e.g. tree challenge
+  const [unitName, setUnitName] = useState(activityToEdit?.unitName || 'شجرة مغروسة');
+  const [basePoints, setBasePoints] = useState(activityToEdit?.basePoints || 150);
+  const [pointsPerUnit, setPointsPerUnit] = useState(activityToEdit?.pointsPerUnit || 25);
 
-  const [wilaya, setWilaya] = useState(currentUser.wilaya || 'الجزائر العاصمة');
-  const [municipality, setMunicipality] = useState('مختلف البلديات');
-  const [startDate, setStartDate] = useState('2026-09-20');
-  const [endDate, setEndDate] = useState('2026-11-20');
-  const [targetParticipants, setTargetParticipants] = useState(500);
+  const [wilaya, setWilaya] = useState(activityToEdit?.wilaya || currentUser.wilaya || 'الجزائر العاصمة');
+  const [municipality, setMunicipality] = useState(activityToEdit?.municipality || 'مختلف البلديات');
+  const [startDate, setStartDate] = useState(activityToEdit?.startDate || '2026-09-20');
+  const [endDate, setEndDate] = useState(activityToEdit?.endDate || '2026-11-20');
+  const [targetParticipants, setTargetParticipants] = useState(activityToEdit?.targetParticipants || 500);
 
   // Cover image preset or custom
   const coverPresets = [
@@ -50,20 +53,29 @@ export const CreateActivityModal: React.FC<CreateActivityModalProps> = ({ onClos
     'https://images.unsplash.com/photo-1531482615713-2afd69097998?auto=format&fit=crop&w=800&q=80',
     'https://images.unsplash.com/photo-1548013146-72479768bada?auto=format&fit=crop&w=800&q=80',
   ];
-  const [coverImage, setCoverImage] = useState(coverPresets[0]);
+  const [coverImage, setCoverImage] = useState(activityToEdit?.coverImage || coverPresets[0]);
   const coverFileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleCoverFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCoverFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      if (typeof event.target?.result === 'string') {
-        setCoverImage(event.target.result);
-      }
-    };
-    reader.readAsDataURL(file);
+    try {
+      const { dataUrl, record } = await saveImageToFileSystem(file, 'activity');
+      setCoverImage(dataUrl);
+      showToast({
+        type: 'success',
+        title: 'تم حفظ صورة النشاط في الملفات 📁',
+        message: `تم حفظ "${record.name}" بنجاح في ملفات النظام وتحديث صورة المشروع التطوعي.`,
+      });
+    } catch (err) {
+      console.error(err);
+      showToast({
+        type: 'error',
+        title: 'خطأ في قراءة ملف الصورة',
+        message: 'تعذر حفظ ملف الصورة، يرجى المحاولة مرة أخرى.',
+      });
+    }
   };
 
   // Designated locations list
@@ -89,30 +101,53 @@ export const CreateActivityModal: React.FC<CreateActivityModalProps> = ({ onClos
     e.preventDefault();
     if (!title.trim() || !shortDesc.trim()) return;
 
-    addActivity({
-      title: title.trim(),
-      shortDescription: shortDesc.trim(),
-      fullDescription: fullDesc.trim() || shortDesc.trim(),
-      category,
-      targetAudience,
-      basePoints: Number(basePoints) || 100,
-      requiresPhotos,
-      requiresLocation,
-      allowMultipleProof,
-      unitName: allowMultipleProof ? unitName : undefined,
-      pointsPerUnit: allowMultipleProof ? Number(pointsPerUnit) : undefined,
-      creatorRole: currentUser.role === 'institution_admin' ? 'institution_admin' : 'general_admin',
-      institutionId: currentUser.role === 'institution_admin' ? currentUser.affiliatedInstitutionId : undefined,
-      institutionName: currentUser.role === 'institution_admin' ? currentUser.affiliatedInstitutionName : undefined,
-      wilaya,
-      municipality,
-      startDate,
-      endDate,
-      status: 'active',
-      coverImage,
-      targetParticipants: Number(targetParticipants) || 100,
-      locationsList: locations,
-    });
+    if (activityToEdit) {
+      updateActivity(activityToEdit.id, {
+        title: title.trim(),
+        shortDescription: shortDesc.trim(),
+        fullDescription: fullDesc.trim() || shortDesc.trim(),
+        category,
+        targetAudience,
+        basePoints: Number(basePoints) || 100,
+        requiresPhotos,
+        requiresLocation,
+        allowMultipleProof,
+        unitName: allowMultipleProof ? unitName : undefined,
+        pointsPerUnit: allowMultipleProof ? Number(pointsPerUnit) : undefined,
+        wilaya,
+        municipality,
+        startDate,
+        endDate,
+        coverImage,
+        targetParticipants: Number(targetParticipants) || 100,
+        locationsList: locations,
+      });
+    } else {
+      addActivity({
+        title: title.trim(),
+        shortDescription: shortDesc.trim(),
+        fullDescription: fullDesc.trim() || shortDesc.trim(),
+        category,
+        targetAudience,
+        basePoints: Number(basePoints) || 100,
+        requiresPhotos,
+        requiresLocation,
+        allowMultipleProof,
+        unitName: allowMultipleProof ? unitName : undefined,
+        pointsPerUnit: allowMultipleProof ? Number(pointsPerUnit) : undefined,
+        creatorRole: currentUser.role === 'institution_admin' ? 'institution_admin' : 'general_admin',
+        institutionId: currentUser.role === 'institution_admin' ? currentUser.affiliatedInstitutionId : undefined,
+        institutionName: currentUser.role === 'institution_admin' ? currentUser.affiliatedInstitutionName : undefined,
+        wilaya,
+        municipality,
+        startDate,
+        endDate,
+        status: 'active',
+        coverImage,
+        targetParticipants: Number(targetParticipants) || 100,
+        locationsList: locations,
+      });
+    }
 
     onClose();
   };
@@ -125,10 +160,12 @@ export const CreateActivityModal: React.FC<CreateActivityModalProps> = ({ onClos
         <div className="p-6 bg-gradient-to-r from-emerald-800 to-teal-900 text-white flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center text-amber-300">
-              <Plus className="w-6 h-6" />
+              {activityToEdit ? <Edit3 className="w-6 h-6" /> : <Plus className="w-6 h-6" />}
             </div>
             <div>
-              <h3 className="text-xl font-black">نشر نشاط أو مشروع تطوعي جديد</h3>
+              <h3 className="text-xl font-black">
+                {activityToEdit ? 'تعديل بيانات النشاط التطوعي واستبدال الصورة' : 'نشر نشاط أو مشروع تطوعي جديد'}
+              </h3>
               <p className="text-xs text-emerald-200 mt-0.5">
                 {currentUser.role === 'general_admin' ? 'إشراف المديرية العامة (وزارة الشباب والرياضة)' : `إشراف: ${currentUser.name}`}
               </p>
@@ -544,7 +581,7 @@ export const CreateActivityModal: React.FC<CreateActivityModalProps> = ({ onClos
               className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white font-black text-xs shadow-md transition flex items-center gap-2 cursor-pointer"
             >
               <Sparkles className="w-4 h-4" />
-              <span>نشر النشاط في المنصة فوراً</span>
+              <span>{activityToEdit ? 'حفظ التعديلات وتحديث النشاط' : 'نشر النشاط في المنصة فوراً'}</span>
             </button>
           </div>
 

@@ -253,8 +253,8 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = ({ onOpenProfile 
           </div>
         </div>
 
-        {/* Table */}
-        <div className="overflow-x-auto">
+        {/* Desktop Table View (No horizontal scrolling on desktop) */}
+        <div className="hidden md:block overflow-hidden">
           <table className="w-full text-right text-xs">
             <thead className="bg-slate-50 text-slate-500 font-bold border-b border-slate-200">
               <tr>
@@ -340,6 +340,79 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = ({ onOpenProfile 
               ))}
             </tbody>
           </table>
+        </div>
+
+        {/* Mobile View: Dedicated cards without horizontal scrolling (MD:HIDDEN) */}
+        <div className="md:hidden divide-y divide-slate-100">
+          {filteredUsers.map((user) => (
+            <div
+              key={user.id}
+              onClick={() => handleSelectUser(user)}
+              className="p-3.5 hover:bg-slate-50/90 transition cursor-pointer space-y-3 text-right"
+            >
+              {/* Top info: Rank, Avatar, Name, Role, Points */}
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <span className={`inline-flex items-center justify-center w-7 h-7 rounded-xl font-black text-xs shrink-0 ${
+                    user.rank === 1
+                      ? 'bg-amber-500 text-slate-950 ring-2 ring-amber-300'
+                      : user.rank === 2
+                      ? 'bg-slate-400 text-white'
+                      : user.rank === 3
+                      ? 'bg-amber-700 text-white'
+                      : 'bg-slate-100 text-slate-700'
+                  }`}>
+                    {user.rank}
+                  </span>
+
+                  <img
+                    src={user.avatar}
+                    alt={user.name}
+                    className="w-10 h-10 rounded-xl object-cover border border-slate-200 shrink-0"
+                  />
+
+                  <div className="min-w-0">
+                    <div className="font-bold text-xs text-slate-900 truncate">
+                      {user.name}
+                    </div>
+                    <div className="text-[10px] text-slate-500 flex items-center gap-1 mt-0.5">
+                      <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
+                      <span className="truncate">{user.wilaya}</span>
+                      <span>•</span>
+                      <span className="truncate">{user.role === 'institution' ? 'مؤسسة' : 'متطوع'}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="shrink-0 text-left">
+                  <span className="font-black text-amber-700 font-mono text-xs bg-amber-50 px-2 py-1 rounded-lg border border-amber-200 inline-block">
+                    {user.points.toLocaleString()} ن
+                  </span>
+                </div>
+              </div>
+
+              {/* Bottom stats row: Tasks count, Hours, and Action */}
+              <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100/80 text-[11px] text-slate-600">
+                <div className="flex items-center gap-3">
+                  <span>
+                    <strong className="text-slate-900">{user.completedTasksCount}</strong> مهام معتمدة
+                  </span>
+                  <span>•</span>
+                  <span>
+                    <strong className="text-slate-900">{user.hoursVolunteered}</strong> ساعة
+                  </span>
+                </div>
+
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-800 font-bold text-[10px]"
+                >
+                  <Eye className="w-3 h-3" />
+                  <span>معرض الأعمال</span>
+                </button>
+              </div>
+            </div>
+          ))}
         </div>
 
       </div>
