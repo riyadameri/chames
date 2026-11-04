@@ -1,7 +1,7 @@
 /**
  * Persistent image and file storage manager for Shams Platform
  * Handles reading files from device, canvas-based optimization to prevent quota issues,
- * and saving metadata/data URLs to local storage.
+ * uploading to the backend file system (/uploads/...), and saving metadata to local storage.
  */
 
 export interface StoredFileRecord {
@@ -28,7 +28,6 @@ export async function optimizeAndReadFileAsDataUrl(
   quality = 0.88
 ): Promise<string> {
   return new Promise((resolve, reject) => {
-    // If not an image, read directly as data URL
     if (!file.type.startsWith('image/')) {
       const reader = new FileReader();
       reader.onload = (e) => resolve(e.target?.result as string);
@@ -64,7 +63,6 @@ export async function optimizeAndReadFileAsDataUrl(
         }
 
         ctx.drawImage(img, 0, 0, width, height);
-        // Use JPEG for standard photos to ensure compact storage, or PNG for graphics
         const mime = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
         const dataUrl = canvas.toDataURL(mime, quality);
         resolve(dataUrl);
@@ -78,13 +76,37 @@ export async function optimizeAndReadFileAsDataUrl(
 }
 
 /**
- * Saves an uploaded image file into the local files library
+ * Saves an uploaded image file both locally and to the backend /api/upload
+ * Returns a production-ready URL (e.g. /uploads/profile-xxx.jpg)
  */
 export async function saveImageToFileSystem(
   file: File, 
   category: 'profile' | 'post' | 'activity' | 'media'
 ): Promise<{ dataUrl: string; record: StoredFileRecord }> {
-  const dataUrl = await optimizeAndReadFileAsDataUrl(file);
+  const localDataUrl = await optimizeAndReadFileAsDataUrl(file);
+  let finalUrl = localDataUrl;
+
+  // Attempt real server upload for production-grade static file hosting
+  try {
+    const uploadRes = await fetch('/api/upload', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        image: localDataUrl,
+        category,
+        fileName: file.name
+      })
+    });
+
+    if (uploadRes.ok) {
+      const data = await uploadRes.json();
+      if (data.url) {
+        finalUrl = data.url;
+      }
+    }
+  } catch (uploadErr) {
+    console.warn('[Upload Warning] Server upload fallback to data URL:', uploadErr);
+  }
 
   const formatSize = (bytes: number) => {
     if (bytes < 1024) return `${bytes} B`;
@@ -99,20 +121,19 @@ export async function saveImageToFileSystem(
     sizeBytes: file.size,
     type: file.type || 'image/jpeg',
     category,
-    dataUrl,
+    dataUrl: finalUrl,
     uploadedAt: new Date().toISOString(),
   };
 
   try {
     const existing = getStoredFiles();
-    // Keep most recent 50 files to avoid exceeding storage quota
     const updated = [record, ...existing].slice(0, 50);
     localStorage.setItem(STORAGE_KEY_FILES, JSON.stringify(updated));
   } catch (err) {
-    console.warn('File storage notice: LocalStorage write quota reached, file kept in active state:', err);
+    console.warn('File storage notice: LocalStorage write quota reached:', err);
   }
 
-  return { dataUrl, record };
+  return { dataUrl: finalUrl, record };
 }
 
 /**

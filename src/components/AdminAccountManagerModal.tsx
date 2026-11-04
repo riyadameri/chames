@@ -88,6 +88,106 @@ export const AdminAccountManagerModal: React.FC<AdminAccountManagerModalProps> =
   const [standaloneLeader, setStandaloneLeader] = useState('');
   const [standaloneMembers, setStandaloneMembers] = useState(20);
 
+  // Database Custom Configuration State
+  const [customMongoUri, setCustomMongoUri] = useState('');
+  const [customDbName, setCustomDbName] = useState('shames');
+  const [isTestingDb, setIsTestingDb] = useState(false);
+  const [isSavingDb, setIsSavingDb] = useState(false);
+  const [dbTestResult, setDbTestResult] = useState<{ success: boolean; message: string; pingMs?: number } | null>(null);
+
+  // Load current DB config when opening or entering production_check tab
+  React.useEffect(() => {
+    if (isOpen && activeTab === 'production_check') {
+      fetch('/api/db/config')
+        .then(res => res.json())
+        .then(data => {
+          if (data.config) {
+            setCustomMongoUri(data.config.uri || '');
+            setCustomDbName(data.config.database || 'shames');
+          }
+        })
+        .catch(err => console.warn('Could not load DB config:', err));
+    }
+  }, [isOpen, activeTab]);
+
+  const handleTestDatabase = async () => {
+    if (!customMongoUri.trim()) {
+      showToast({ type: 'warning', title: 'بيانات ناقصة', message: 'يرجى إدخال رابط الاتصال بـ MongoDB (URI).' });
+      return;
+    }
+    setIsTestingDb(true);
+    setDbTestResult(null);
+    try {
+      const res = await fetch('/api/db/test-config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ uri: customMongoUri.trim(), database: customDbName.trim() || 'shames' })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setDbTestResult({
+          success: true,
+          message: `تم الاتصال بنجاح! سرعة الاستجابة ${data.pingMs || 15}ms وعدد المجموعات المكتشفة: ${data.collections?.length || 0}`,
+          pingMs: data.pingMs
+        });
+        showToast({
+          type: 'success',
+          title: 'اتصال ناجح بقاعدة البيانات! 🔌',
+          message: 'تم التحقق من صحة الرابط وقاعدة البيانات تعمل بشكل ممتاز.'
+        });
+      } else {
+        setDbTestResult({
+          success: false,
+          message: `فشل الاتصال: ${data.error || 'تأكد من صحة بيانات الاعتماد والشبكة'}`
+        });
+        showToast({
+          type: 'error',
+          title: 'فشل اختبار الاتصال ❌',
+          message: data.error || 'تعذر الاتصال بـ MongoDB.'
+        });
+      }
+    } catch (e: any) {
+      setDbTestResult({ success: false, message: e.message || 'خطأ في الشبكة' });
+    } finally {
+      setIsTestingDb(false);
+    }
+  };
+
+  const handleSaveDatabaseConfig = async () => {
+    if (!customMongoUri.trim()) {
+      showToast({ type: 'warning', title: 'بيانات ناقصة', message: 'يرجى إدخال رابط الاتصال بـ MongoDB (URI).' });
+      return;
+    }
+    setIsSavingDb(true);
+    try {
+      const res = await fetch('/api/db/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ uri: customMongoUri.trim(), database: customDbName.trim() || 'shames' })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        showToast({
+          type: 'success',
+          title: 'تم حفظ وتفعيل قاعدة البيانات! 💾',
+          message: `المنصة متصلة الآن مباشرة بقاعدة البيانات: "${customDbName}".`
+        });
+        // Trigger data sync with new database
+        syncNowWithMongoDb();
+      } else {
+        showToast({
+          type: 'error',
+          title: 'تعذر الحفظ',
+          message: data.error || 'حدث خطأ أثناء تطبيق الإعدادات.'
+        });
+      }
+    } catch (err: any) {
+      showToast({ type: 'error', title: 'خطأ في الاتصال', message: err.message });
+    } finally {
+      setIsSavingDb(false);
+    }
+  };
+
   if (!isOpen) return null;
 
   const handleGeneratePassword = () => {
@@ -999,6 +1099,105 @@ export const AdminAccountManagerModal: React.FC<AdminAccountManagerModalProps> =
                 </div>
               </div>
 
+              {/* Custom Database Setting Form */}
+              <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold">
+                      🔌
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-black text-slate-900">تعيين وضبط قاعدة بيانات MongoDB</h4>
+                      <p className="text-[11px] text-slate-500">يمكنك هنا تغيير رابط قاعدة البيانات واسمها وربط سيرفرك الخاص مباشرة</p>
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-mono px-2 py-1 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200 font-bold">
+                    نطاق: https://rudeox.cloud/ | المنفذ: 4040
+                  </span>
+                </div>
+
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      رابط الاتصال بـ MongoDB (Connection URI):
+                    </label>
+                    <input
+                      type="text"
+                      value={customMongoUri}
+                      onChange={(e) => setCustomMongoUri(e.target.value)}
+                      placeholder="mongodb://username:password@host:27017/dbname or mongodb+srv://..."
+                      className="w-full px-3 py-2 text-xs font-mono rounded-xl border border-slate-300 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none"
+                      dir="ltr"
+                    />
+                    <span className="text-[10px] text-slate-400 mt-0.5 block">
+                      يدعم بروتوكولات MongoDB المختلفة: mongodb:// القياسي أو mongodb+srv:// السحابي.
+                    </span>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      اسم قاعدة البيانات (Database Name):
+                    </label>
+                    <input
+                      type="text"
+                      value={customDbName}
+                      onChange={(e) => setCustomDbName(e.target.value)}
+                      placeholder="shames"
+                      className="w-full max-w-sm px-3 py-2 text-xs font-mono rounded-xl border border-slate-300 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none"
+                      dir="ltr"
+                    />
+                  </div>
+
+                  {dbTestResult && (
+                    <div className={`p-3 rounded-xl text-xs font-bold border ${
+                      dbTestResult.success 
+                        ? 'bg-emerald-50 border-emerald-200 text-emerald-900' 
+                        : 'bg-rose-50 border-rose-200 text-rose-900'
+                    }`}>
+                      {dbTestResult.message}
+                    </div>
+                  )}
+
+                  <div className="flex flex-wrap items-center gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={handleTestDatabase}
+                      disabled={isTestingDb || !customMongoUri.trim()}
+                      className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-900 disabled:bg-slate-400 text-white text-xs font-bold transition cursor-pointer flex items-center gap-1.5 shadow-2xs"
+                    >
+                      {isTestingDb ? (
+                        <>
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin text-amber-300" />
+                          <span>جاري فحص الاتصال...</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>اختبار الاتصال 🔌</span>
+                        </>
+                      )}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleSaveDatabaseConfig}
+                      disabled={isSavingDb || !customMongoUri.trim()}
+                      className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-400 text-white text-xs font-black transition cursor-pointer flex items-center gap-1.5 shadow-sm"
+                    >
+                      {isSavingDb ? (
+                        <>
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin text-white" />
+                          <span>جاري الحفظ والاتصال...</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>حفظ وتطبيق قاعدة البيانات 💾</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
               {/* MongoDB Atlas Database Live Console */}
               <div className="p-5 rounded-2xl bg-slate-900 text-white space-y-4 border border-emerald-900/60 shadow-lg">
                 <div className="flex flex-wrap items-center justify-between gap-2">
@@ -1006,10 +1205,10 @@ export const AdminAccountManagerModal: React.FC<AdminAccountManagerModalProps> =
                     <Database className="w-5 h-5 text-emerald-400" />
                     <div>
                       <h4 className="text-sm font-black text-white flex items-center gap-2">
-                        <span>قاعدة بيانات MongoDB:</span>
-                        <span className="text-emerald-400 font-mono underline decoration-emerald-500/50">{mongoDbStatus?.database || 'shames'}</span>
+                        <span>قاعدة بيانات MongoDB النشطة:</span>
+                        <span className="text-emerald-400 font-mono underline decoration-emerald-500/50">{mongoDbStatus?.database || customDbName || 'shames'}</span>
                       </h4>
-                      <p className="text-[11px] text-slate-400 mt-0.5">اتصال سحابي مباشر ومستمر لحفظ ومزامنة كافة بيانات المنصة</p>
+                      <p className="text-[11px] text-slate-400 mt-0.5">اتصال مباشر ومستمر لحفظ ومزامنة كافة بيانات المنصة</p>
                     </div>
                   </div>
 
@@ -1063,9 +1262,9 @@ export const AdminAccountManagerModal: React.FC<AdminAccountManagerModalProps> =
                   </div>
 
                   <div className="p-2.5 rounded-xl bg-white/5 border border-white/10">
-                    <span className="text-[10px] text-slate-400 block">Cluster & ReplicaSet</span>
-                    <strong className="text-xs font-mono text-amber-300 mt-0.5 block truncate" title="atlas-3anew8-shard-0">
-                      Cluster0 / 3anew8
+                    <span className="text-[10px] text-slate-400 block">منفذ التشغيل و النطاق</span>
+                    <strong className="text-xs font-mono text-amber-300 mt-0.5 block truncate" title="Port 4040 & 3000 / rudeox.cloud">
+                      Port 4040 • rudeox.cloud
                     </strong>
                   </div>
                 </div>

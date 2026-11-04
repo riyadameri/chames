@@ -211,6 +211,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           username: official.username,
           role: official.role,
           name: official.name,
+          avatar: merged[idx].avatar || official.avatar,
           coverImage: merged[idx].coverImage || official.coverImage,
           streakCount: merged[idx].streakCount ?? 14,
           longestStreak: merged[idx].longestStreak ?? 28,
@@ -424,7 +425,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Synchronize localStorage
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
+    try {
+      localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
+    } catch (e) {
+      console.warn('LocalStorage users quota reached:', e);
+    }
   }, [users]);
 
   useEffect(() => {
@@ -1677,6 +1682,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       title: 'تم تحديث الملف الشخصي! 👤',
       message: 'تم حفظ تعديلاتك على البيانات الشخصية، الصورة الشخصية وصورة الغلاف.',
     });
+
+    // Immediately persist updated user to MongoDB backend
+    if (updatedAccount) {
+      fetch('/api/db/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedAccount)
+      }).catch(err => console.warn('[MongoDB User Direct Sync Error]', err));
+    }
 
     return {
       success: true,

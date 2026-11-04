@@ -153,21 +153,6 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {/* User Controls & Profile Actions Area */}
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-            
-            {/* MongoDB Atlas Live Connection Pill */}
-            <button
-              onClick={() => {
-                if (currentUser.role === 'general_admin' || currentUser.username === 'riyad' || isShamsAdmin) {
-                  setIsAdminAccountManagerOpen(true);
-                }
-              }}
-              className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-[11px] font-bold hover:bg-emerald-100 transition cursor-pointer shrink-0 shadow-2xs"
-              title={`قاعدة بيانات MongoDB: ${mongoDbStatus?.database || 'shames'} (متصل مباشرة)`}
-            >
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-              <span className="font-mono text-xs">{mongoDbStatus?.database || 'shames'}</span>
-              <Database className="w-3.5 h-3.5 text-emerald-600" />
-            </button>
 
             {/* Platform Guide Button (دليل المنصة وشرح شمس ماب والجوائز) */}
             <button

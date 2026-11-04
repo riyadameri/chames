@@ -124,6 +124,46 @@ export const ProfilePageView: React.FC<ProfilePageViewProps> = ({
     }
   };
 
+  // Direct avatar file upload
+  const directAvatarInputRef = useRef<HTMLInputElement>(null);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+
+  const handleDirectAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 12 * 1024 * 1024) {
+      showToast({
+        type: 'warning',
+        title: 'حجم الصورة كبير',
+        message: 'يرجى اختيار صورة بحجم أقل من 12 ميغابايت.'
+      });
+      return;
+    }
+
+    setIsUploadingAvatar(true);
+    try {
+      const { dataUrl, record } = await saveImageToFileSystem(file, 'profile');
+      updateUserProfile({ avatar: dataUrl });
+      showToast({
+        type: 'success',
+        title: 'تم تحديث الصورة الشخصية بنجاح! 📸',
+        message: `تم حفظ الصورة وتطبيقها مباشرة على حسابك ومنشوراتك.`
+      });
+    } catch (err) {
+      console.error(err);
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        if (typeof event.target?.result === 'string') {
+          updateUserProfile({ avatar: event.target.result });
+        }
+      };
+      reader.readAsDataURL(file);
+    } finally {
+      setIsUploadingAvatar(false);
+    }
+  };
+
   // Active comment input tracking: postId -> comment text
   const [commentInputs, setCommentInputs] = useState<Record<string, string>>({});
   const [expandedComments, setExpandedComments] = useState<Record<string, boolean>>({});
@@ -375,14 +415,38 @@ export const ProfilePageView: React.FC<ProfilePageViewProps> = ({
                 
                 {/* Change avatar button on hover / touch if own profile */}
                 {isOwnProfile ? (
-                  <button
-                    type="button"
-                    onClick={() => { setEditProfileTab('avatar'); setShowEditProfileModal(true); }}
-                    className="absolute -bottom-1 -right-1 p-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg border-2 border-white transition cursor-pointer"
-                    title="تغيير الصورة الشخصية"
-                  >
-                    <Camera className="w-4 h-4" />
-                  </button>
+                  <>
+                    <input 
+                      ref={directAvatarInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleDirectAvatarUpload}
+                      className="hidden"
+                    />
+                    <div className="absolute -bottom-1 -right-1 flex items-center gap-1 z-10">
+                      <button
+                        type="button"
+                        onClick={() => directAvatarInputRef.current?.click()}
+                        disabled={isUploadingAvatar}
+                        className="p-2 sm:p-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-xl border-2 border-white transition cursor-pointer hover:scale-105"
+                        title="تغيير الصورة الشخصية فورياً من جهازك 📸"
+                      >
+                        {isUploadingAvatar ? (
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                          <Camera className="w-4 h-4" />
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setEditProfileTab('avatar'); setShowEditProfileModal(true); }}
+                        className="p-1.5 bg-slate-900/80 hover:bg-slate-950 text-white rounded-lg text-[10px] font-bold border border-white/20 transition cursor-pointer shadow-md"
+                        title="خيارات إضافية ونماذج جاهزة"
+                      >
+                        <Sparkles className="w-3 h-3 text-amber-300" />
+                      </button>
+                    </div>
+                  </>
                 ) : (
                   <div className="absolute -bottom-1 -right-1 w-8 h-8 rounded-xl bg-amber-500 text-slate-950 flex items-center justify-center font-black text-xs shadow-md border-2 border-white">
                     #{activeUser.rank || 1}
