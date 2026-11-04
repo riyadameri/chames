@@ -205,16 +205,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const idx = merged.findIndex(u => u.id === official.id || (official.username && u.username === official.username));
       if (idx >= 0) {
         merged[idx] = {
-          ...merged[idx],
           ...official,
-          streakCount: merged[idx].streakCount ?? 14,
-          longestStreak: merged[idx].longestStreak ?? 28,
-          streakFreezeTokens: merged[idx].streakFreezeTokens ?? 2,
-          dailyCheckInDone: merged[idx].dailyCheckInDone ?? false,
+          ...merged[idx],
           password: official.password,
           username: official.username,
           role: official.role,
           name: official.name,
+          coverImage: merged[idx].coverImage || official.coverImage,
+          streakCount: merged[idx].streakCount ?? 14,
+          longestStreak: merged[idx].longestStreak ?? 28,
+          streakFreezeTokens: merged[idx].streakFreezeTokens ?? 2,
+          dailyCheckInDone: merged[idx].dailyCheckInDone ?? false,
         };
       } else {
         merged.push({

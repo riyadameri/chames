@@ -384,36 +384,27 @@ export const NationalSnapMapView: React.FC<NationalSnapMapViewProps> = ({
             {/* Authentic Territorial Path of Algeria */}
             <path 
               d="
-                M 215,185 
-                C 240,175 270,165 315,145 
-                C 345,130 380,125 435,120 
-                C 490,115 520,105 565,100 
-                C 620,105 660,100 705,95 
-                C 745,90 790,85 845,85 
-                C 875,85 895,90 900,105 
-                L 895,150 
-                L 880,210 
-                L 865,260 
-                L 845,320 
-                L 935,395 
-                L 915,480 
-                L 895,570 
-                L 895,710 
-                L 925,750 
-                L 855,820 
-                L 770,875 
-                L 660,935 
-                L 570,900 
-                L 510,865 
-                L 425,830 
-                L 345,690 
-                L 230,620 
-                L 135,565 
-                L 70,525 
-                L 115,475 
-                L 190,395 
-                L 245,310 
-                L 215,220 
+                M 220,180 
+                C 300,160 420,130 540,105 
+                C 650,95 780,85 890,75 
+                L 885,190 
+                L 850,280 
+                L 890,360 
+                L 880,530 
+                L 895,660 
+                L 920,700 
+                L 800,760 
+                L 660,800 
+                L 540,780 
+                L 430,735 
+                L 310,630 
+                L 180,560 
+                L 70,520 
+                L 50,470 
+                L 110,420 
+                L 200,360 
+                L 240,300 
+                L 230,230 
                 Z
               "
               fill="url(#algeriaGradient)"
@@ -426,7 +417,7 @@ export const NationalSnapMapView: React.FC<NationalSnapMapViewProps> = ({
 
             {/* Northern Tell & Saharan Atlas Relief Contours */}
             <path 
-              d="M 230,225 Q 450,175 870,140" 
+              d="M 230,210 Q 520,160 880,125" 
               stroke="#10b981" 
               strokeWidth="1.2" 
               strokeDasharray="4,4" 
@@ -434,7 +425,7 @@ export const NationalSnapMapView: React.FC<NationalSnapMapViewProps> = ({
               opacity="0.3" 
             />
             <path 
-              d="M 250,290 Q 520,245 840,215" 
+              d="M 240,270 Q 520,225 845,195" 
               stroke="#fbbf24" 
               strokeWidth="1.2" 
               strokeDasharray="5,5" 
@@ -444,18 +435,18 @@ export const NationalSnapMapView: React.FC<NationalSnapMapViewProps> = ({
 
             {/* Oasis Corridor Connecting Line: Biskra -> Touggourt -> Ouargla -> Hassi Messaoud */}
             <path 
-              d="M 720,285 L 750,350 L 710,420 L 790,460" 
+              d="M 720,255 L 750,314 L 710,374 L 780,410" 
               stroke="#f59e0b" 
               strokeWidth="2.5" 
               strokeDasharray="6,4" 
               fill="none" 
-              opacity="0.8" 
+              opacity="0.85" 
               className="animate-pulse"
             />
 
-            {/* Big Radiant Glow on Ouargla & Touggourt Region */}
-            <circle cx="710" cy="420" r="95" fill="url(#ouarglaHalo)" />
-            <circle cx="750" cy="350" r="75" fill="url(#touggourtHalo)" />
+            {/* Radiant Glow Halos on Touggourt and Ouargla Region */}
+            <circle cx="750" cy="314" r="75" fill="url(#touggourtHalo)" />
+            <circle cx="710" cy="374" r="90" fill="url(#ouarglaHalo)" />
 
             {/* Sahara Dunes Waves Texture */}
             <path d="M 350,450 Q 420,430 490,450 T 630,450" stroke="#f59e0b" strokeWidth="0.8" opacity="0.25" fill="none" />
@@ -463,13 +454,13 @@ export const NationalSnapMapView: React.FC<NationalSnapMapViewProps> = ({
             <path d="M 480,600 Q 550,580 620,600 T 760,600" stroke="#f59e0b" strokeWidth="0.8" opacity="0.25" fill="none" />
 
             {/* Region Labels */}
-            <text x="540" y="80" fill="#a7f3d0" fontSize="14" fontWeight="bold" textAnchor="middle" opacity="0.6">
+            <text x="540" y="70" fill="#a7f3d0" fontSize="14" fontWeight="bold" textAnchor="middle" opacity="0.6">
               البحر الأبيض المتوسط
             </text>
-            <text x="730" y="470" fill="#fde68a" fontSize="14" fontWeight="black" textAnchor="middle" opacity="0.85">
+            <text x="730" y="420" fill="#fde68a" fontSize="13" fontWeight="black" textAnchor="middle" opacity="0.9">
               🌴 واحات الجنوب (ورقلة - تقرت)
             </text>
-            <text x="500" y="720" fill="#6ee7b7" fontSize="16" fontWeight="bold" textAnchor="middle" opacity="0.4">
+            <text x="500" y="680" fill="#6ee7b7" fontSize="15" fontWeight="bold" textAnchor="middle" opacity="0.4">
               الصحراء الكبرى الجزائرية
             </text>
           </svg>

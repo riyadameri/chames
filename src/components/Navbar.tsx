@@ -40,6 +40,7 @@ interface NavbarProps {
   onOpenProfile?: () => void;
   onOpenLogin?: () => void;
   onOpenRegister?: () => void;
+  onOpenAbout?: () => void;
   onSelectActivity?: (activity: Activity) => void;
   onSelectUser?: (user: UserType) => void;
   onSelectClub?: (club: AffiliatedClub) => void;
@@ -54,6 +55,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenProfile,
   onOpenLogin,
   onOpenRegister,
+  onOpenAbout,
   onSelectActivity,
   onSelectUser,
   onSelectClub,
@@ -165,6 +167,18 @@ export const Navbar: React.FC<NavbarProps> = ({
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
               <span className="font-mono text-xs">{mongoDbStatus?.database || 'shames'}</span>
               <Database className="w-3.5 h-3.5 text-emerald-600" />
+            </button>
+
+            {/* Platform Guide Button (دليل المنصة وشرح شمس ماب والجوائز) */}
+            <button
+              type="button"
+              onClick={() => onOpenAbout && onOpenAbout()}
+              className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl border border-amber-300 bg-gradient-to-r from-amber-50 to-yellow-50 hover:from-amber-100 hover:to-yellow-100 text-amber-950 font-black text-xs transition cursor-pointer shadow-2xs shrink-0"
+              title="دليل منصة شمس التطوع وشرح الميزات والجوائز 💡"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+              <span className="hidden sm:inline">دليل المنصة 💡</span>
+              <span className="sm:hidden">الدليل</span>
             </button>
 
             {/* Authenticated State Actions */}
@@ -362,6 +376,21 @@ export const Navbar: React.FC<NavbarProps> = ({
                             <span>فتح ملفي الشخصي ومنشوراتي</span>
                           </div>
                           <span className="text-emerald-700">←</span>
+                        </button>
+
+                        {/* Platform Guide */}
+                        <button
+                          onClick={() => {
+                            setRoleMenuOpen(false);
+                            if (onOpenAbout) onOpenAbout();
+                          }}
+                          className="w-full p-2.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-950 font-bold text-xs flex items-center justify-between transition cursor-pointer"
+                        >
+                          <div className="flex items-center gap-2">
+                            <Sparkles className="w-4 h-4 text-amber-600" />
+                            <span>دليل المنصة وشرح شمس ماب 💡</span>
+                          </div>
+                          <span className="text-amber-700 text-[10px] font-black">شرح</span>
                         </button>
 
                         {/* General Admin Console */}

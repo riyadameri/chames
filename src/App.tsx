@@ -13,7 +13,7 @@ import { ProfilePageView } from './components/ProfilePageView';
 import { NationalSnapMapView } from './components/NationalSnapMapView';
 import { StoryViewerModal } from './components/StoryViewerModal';
 import { StreakModal } from './components/StreakModal';
-import { DirectChatDrawerModal } from './components/DirectChatDrawerModal';
+import { AboutPlatformModal } from './components/AboutPlatformModal';
 import { DirectChatView } from './components/DirectChatView';
 import { CreateActivityView } from './components/CreateActivityView';
 import { ActivityDetailModal } from './components/ActivityDetailModal';
@@ -71,6 +71,16 @@ const AppContent: React.FC = () => {
   const [viewingProfileUser, setViewingProfileUser] = useState<User | null>(null);
   const [selectedInstitutionForDetails, setSelectedInstitutionForDetails] = useState<User | null>(null);
   const [selectedClubForDetails, setSelectedClubForDetails] = useState<AffiliatedClub | null>(null);
+  const [showAboutModal, setShowAboutModal] = useState<boolean>(false);
+
+  // When chat drawer is opened by any component, redirect immediately to inline chat view without popups
+  React.useEffect(() => {
+    if (isChatDrawerOpen) {
+      setActiveTab('chat');
+      closeChatDrawer();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, [isChatDrawerOpen, closeChatDrawer]);
 
   const pendingReviewsCount = submissions.filter(s => s.status === 'submitted').length;
 
@@ -103,6 +113,7 @@ const AppContent: React.FC = () => {
         onOpenProfile={() => navigateToProfile(currentUser)}
         onOpenLogin={() => openAuthModal('login')}
         onOpenRegister={() => openAuthModal('register')}
+        onOpenAbout={() => setShowAboutModal(true)}
         onSelectActivity={(act) => setSelectedActivity(act)}
         onSelectUser={(u) => navigateToProfile(u)}
         onSelectClub={(c) => setSelectedClubForDetails(c)}
@@ -219,6 +230,7 @@ const AppContent: React.FC = () => {
             onBack={() => setActiveTab('activities')}
             onSelectUser={(u) => navigateToProfile(u)}
             onSelectActivity={(act) => setSelectedActivity(act)}
+            onNavigateToChat={() => setActiveTab('chat')}
           />
         )}
 
@@ -465,14 +477,18 @@ const AppContent: React.FC = () => {
         onOpenLeaderboard={() => setActiveTab('leaderboard')}
       />
 
-      {/* Direct 1-on-1 Chat Drawer / Modal */}
-      <DirectChatDrawerModal 
-        isOpen={isChatDrawerOpen || activeTab === 'chat'}
-        onClose={() => {
-          closeChatDrawer();
-          if (activeTab === 'chat') setActiveTab('feed');
+      {/* Platform Vision & Guide Modal (دليل وشرح المنصة) */}
+      <AboutPlatformModal 
+        isOpen={showAboutModal}
+        onClose={() => setShowAboutModal(false)}
+        onOpenActivities={() => {
+          setShowAboutModal(false);
+          setActiveTab('activities');
         }}
-        onOpenProfile={(u) => navigateToProfile(u)}
+        onOpenMap={() => {
+          setShowAboutModal(false);
+          setActiveTab('snapmap');
+        }}
       />
 
     </div>

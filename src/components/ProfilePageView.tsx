@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { User, Activity, ReactionType, UserPost } from '../types';
 import { useApp } from '../context/AppContext';
+import { saveImageToFileSystem } from '../utils/fileStorage';
 import { 
   Award, 
   MapPin, 
@@ -42,13 +43,15 @@ interface ProfilePageViewProps {
   onBack?: () => void;
   onSelectUser?: (user: User) => void;
   onSelectActivity?: (activity: Activity) => void;
+  onNavigateToChat?: () => void;
 }
 
 export const ProfilePageView: React.FC<ProfilePageViewProps> = ({
   user,
   onBack,
   onSelectUser,
-  onSelectActivity
+  onSelectActivity,
+  onNavigateToChat
 }) => {
   const { 
     currentUser, 
@@ -69,6 +72,7 @@ export const ProfilePageView: React.FC<ProfilePageViewProps> = ({
     canManageAllContent,
     openChatWithUser,
     setShowStreakModal,
+    updateUserProfile,
     showToast 
   } = useApp();
 
@@ -79,6 +83,46 @@ export const ProfilePageView: React.FC<ProfilePageViewProps> = ({
   const [showEditProfileModal, setShowEditProfileModal] = useState<boolean>(false);
   const [editProfileTab, setEditProfileTab] = useState<'info' | 'avatar' | 'cover'>('info');
   const [editingPost, setEditingPost] = useState<UserPost | null>(null);
+
+  // Direct cover file upload
+  const directCoverInputRef = useRef<HTMLInputElement>(null);
+  const [isUploadingCover, setIsUploadingCover] = useState(false);
+
+  const handleDirectCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 8 * 1024 * 1024) {
+      showToast({
+        type: 'warning',
+        title: 'حجم الصورة كبير',
+        message: 'يرجى اختيار صورة بحجم أقل من 8 ميغابايت.'
+      });
+      return;
+    }
+
+    setIsUploadingCover(true);
+    try {
+      const { dataUrl, record } = await saveImageToFileSystem(file, 'profile');
+      updateUserProfile({ coverImage: dataUrl });
+      showToast({
+        type: 'success',
+        title: 'تم تحديث صورة الغلاف بنجاح! 🖼️',
+        message: `تم حفظ "${record.name}" في ملفات النظام وتطبيق صورة الغلاف فورياً.`
+      });
+    } catch (err) {
+      console.error(err);
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        if (typeof event.target?.result === 'string') {
+          updateUserProfile({ coverImage: event.target.result });
+        }
+      };
+      reader.readAsDataURL(file);
+    } finally {
+      setIsUploadingCover(false);
+    }
+  };
 
   // Active comment input tracking: postId -> comment text
   const [commentInputs, setCommentInputs] = useState<Record<string, string>>({});
@@ -274,13 +318,30 @@ export const ProfilePageView: React.FC<ProfilePageViewProps> = ({
           {/* Change cover button for profile owner */}
           {isOwnProfile && (
             <div className="absolute top-3 left-3 sm:top-4 sm:left-4 z-10 flex items-center gap-2">
+              <input 
+                ref={directCoverInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleDirectCoverUpload}
+                className="hidden"
+              />
+              <button
+                type="button"
+                onClick={() => directCoverInputRef.current?.click()}
+                disabled={isUploadingCover}
+                className="px-3.5 py-1.5 bg-slate-950/75 hover:bg-slate-950/95 backdrop-blur-md text-white rounded-xl text-xs font-black border border-white/20 flex items-center gap-1.5 transition cursor-pointer shadow-lg hover:scale-105"
+              >
+                <Camera className="w-4 h-4 text-amber-300" />
+                <span>{isUploadingCover ? 'جاري الحفظ...' : 'تغيير صورة الغلاف من جهازك 🖼️'}</span>
+              </button>
+              
               <button
                 type="button"
                 onClick={() => { setEditProfileTab('cover'); setShowEditProfileModal(true); }}
-                className="px-3 py-1.5 bg-black/60 hover:bg-black/85 backdrop-blur-md text-white rounded-xl text-xs font-bold border border-white/20 flex items-center gap-1.5 transition cursor-pointer shadow-md"
+                className="p-1.5 bg-black/50 hover:bg-black/75 backdrop-blur-md text-white rounded-xl text-xs font-bold border border-white/20 transition cursor-pointer"
+                title="تعديل باقي تفاصيل الحساب"
               >
-                <Camera className="w-3.5 h-3.5 text-emerald-300" />
-                <span>تعديل الغلاف</span>
+                <Sparkles className="w-3.5 h-3.5 text-emerald-300" />
               </button>
             </div>
           )}
@@ -386,7 +447,10 @@ export const ProfilePageView: React.FC<ProfilePageViewProps> = ({
               {!isOwnProfile ? (
                 <>
                   <button
-                    onClick={() => openChatWithUser(activeUser)}
+                    onClick={() => {
+                      openChatWithUser(activeUser);
+                      if (onNavigateToChat) onNavigateToChat();
+                    }}
                     className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-black text-xs bg-slate-900 hover:bg-slate-800 text-white shadow-sm transition cursor-pointer"
                   >
                     <MessageCircle className="w-4 h-4 text-emerald-400" />
