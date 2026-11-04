@@ -67,6 +67,8 @@ export const ProfilePageView: React.FC<ProfilePageViewProps> = ({
     getUserSubscriptionsCount,
     isShamsAdmin,
     canManageAllContent,
+    openChatWithUser,
+    setShowStreakModal,
     showToast 
   } = useApp();
 
@@ -382,26 +384,36 @@ export const ProfilePageView: React.FC<ProfilePageViewProps> = ({
             {/* Profile Action Buttons */}
             <div className="flex items-center gap-2.5 w-full sm:w-auto flex-wrap">
               {!isOwnProfile ? (
-                <button
-                  onClick={() => toggleSubscription(activeUser.id)}
-                  className={`flex-1 sm:flex-initial flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl font-black text-xs transition shadow-sm cursor-pointer ${
-                    isSubscribed 
-                      ? 'bg-slate-100 hover:bg-rose-50 text-slate-800 hover:text-rose-700 border border-slate-300' 
-                      : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-700/20'
-                  }`}
-                >
-                  {isSubscribed ? (
-                    <>
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                      <span>مشترك ومتابع ✓</span>
-                    </>
-                  ) : (
-                    <>
-                      <BellRing className="w-4 h-4" />
-                      <span>اشتراك ومتابعة</span>
-                    </>
-                  )}
-                </button>
+                <>
+                  <button
+                    onClick={() => openChatWithUser(activeUser)}
+                    className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-black text-xs bg-slate-900 hover:bg-slate-800 text-white shadow-sm transition cursor-pointer"
+                  >
+                    <MessageCircle className="w-4 h-4 text-emerald-400" />
+                    <span>محادثة خاصة 💬</span>
+                  </button>
+
+                  <button
+                    onClick={() => toggleSubscription(activeUser.id)}
+                    className={`flex-1 sm:flex-initial flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl font-black text-xs transition shadow-sm cursor-pointer ${
+                      isSubscribed 
+                        ? 'bg-slate-100 hover:bg-rose-50 text-slate-800 hover:text-rose-700 border border-slate-300' 
+                        : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-700/20'
+                    }`}
+                  >
+                    {isSubscribed ? (
+                      <>
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                        <span>مشترك ومتابع ✓</span>
+                      </>
+                    ) : (
+                      <>
+                        <BellRing className="w-4 h-4" />
+                        <span>اشتراك ومتابعة</span>
+                      </>
+                    )}
+                  </button>
+                </>
               ) : (
                 <div className="flex items-center gap-2 flex-wrap">
                   <button
@@ -460,9 +472,26 @@ export const ProfilePageView: React.FC<ProfilePageViewProps> = ({
             </div>
           </div>
 
-          {/* 4 Big Metrics Grid */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mt-6">
+          {/* 5 Big Metrics Grid including Streak */}
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4 mt-6">
             
+            {/* Streak Metric Card */}
+            <div 
+              onClick={() => setShowStreakModal(true)}
+              className="p-4 rounded-2xl bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-300 flex items-center gap-3 cursor-pointer hover:border-amber-400 transition group shadow-2xs col-span-2 lg:col-span-1"
+            >
+              <div className="w-11 h-11 rounded-xl bg-gradient-to-tr from-amber-500 to-orange-600 text-slate-950 flex items-center justify-center shrink-0 shadow-xs group-hover:scale-105 transition">
+                <Flame className="w-6 h-6 fill-slate-950" />
+              </div>
+              <div>
+                <div className="text-[11px] font-bold text-amber-900">الستريك المستمر</div>
+                <div className="text-xl sm:text-2xl font-black text-amber-950 flex items-center gap-1 font-mono">
+                  <span>{activeUser.streakCount || 7}</span>
+                  <span className="text-xs text-amber-800 font-sans font-bold">أيام 🔥</span>
+                </div>
+              </div>
+            </div>
+
             <div className="p-4 rounded-2xl bg-amber-50/60 border border-amber-200 flex items-center gap-3">
               <div className="w-11 h-11 rounded-xl bg-amber-500 text-slate-950 flex items-center justify-center shrink-0 shadow-xs">
                 <Trophy className="w-5 h-5" />

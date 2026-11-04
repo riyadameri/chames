@@ -10,6 +10,12 @@ import { MediaBlogView } from './components/MediaBlogView';
 import { GeneralFeedView } from './components/GeneralFeedView';
 import { UserWorkspaceView } from './components/UserWorkspaceView';
 import { ProfilePageView } from './components/ProfilePageView';
+import { NationalSnapMapView } from './components/NationalSnapMapView';
+import { StoryViewerModal } from './components/StoryViewerModal';
+import { StreakModal } from './components/StreakModal';
+import { DirectChatDrawerModal } from './components/DirectChatDrawerModal';
+import { DirectChatView } from './components/DirectChatView';
+import { CreateActivityView } from './components/CreateActivityView';
 import { ActivityDetailModal } from './components/ActivityDetailModal';
 import { InstitutionDetailModal } from './components/InstitutionDetailModal';
 import { SubmitProofModal } from './components/SubmitProofModal';
@@ -27,25 +33,33 @@ import {
   HeartHandshake,
   CheckCircle2,
   LayoutGrid,
+  MapPin,
+  MessageCircle,
+  Flame,
   User as UserIcon
 } from 'lucide-react';
 
 const AppContent: React.FC = () => {
   const { 
     currentUser, 
+    allUsers,
     submissions, 
     season, 
     authModalState, 
     openAuthModal, 
     closeAuthModal,
-    isLoggedIn
+    isLoggedIn,
+    showStreakModal,
+    setShowStreakModal,
+    isChatDrawerOpen,
+    closeChatDrawer
   } = useApp();
 
   const [activeTab, setActiveTab] = useState<string>('activities');
 
-  // Enforce guest constraint: when logged out, only 'feed' and 'activities' are allowed
+  // Enforce guest constraint: when logged out, only 'feed', 'activities', and 'snapmap' are allowed
   React.useEffect(() => {
-    if (!isLoggedIn && activeTab !== 'activities' && activeTab !== 'feed') {
+    if (!isLoggedIn && activeTab !== 'activities' && activeTab !== 'feed' && activeTab !== 'snapmap') {
       setActiveTab('activities');
     }
   }, [isLoggedIn, activeTab]);
@@ -82,7 +96,10 @@ const AppContent: React.FC = () => {
         activeTab={activeTab} 
         setActiveTab={setActiveTab}
         onSelectTab={setActiveTab} 
-        onOpenCreateActivity={() => setShowCreateActivityModal(true)}
+        onOpenCreateActivity={() => {
+          setActivityToEdit(null);
+          setActiveTab('create-activity');
+        }}
         onOpenProfile={() => navigateToProfile(currentUser)}
         onOpenLogin={() => openAuthModal('login')}
         onOpenRegister={() => openAuthModal('register')}
@@ -129,10 +146,36 @@ const AppContent: React.FC = () => {
           <GeneralFeedView 
             onSelectUser={(u) => navigateToProfile(u)}
             onSelectActivity={(actId) => {
-              // find and set
               setActiveTab('activities');
             }}
             onOpenRegister={() => openAuthModal('register')}
+          />
+        )}
+
+        {/* SHAMS MAP VIEW (خريطة شمس ماب الوطنية) */}
+        {activeTab === 'snapmap' && (
+          <NationalSnapMapView 
+            onSelectActivity={(act) => setSelectedActivity(act)}
+            onSelectUser={(u) => navigateToProfile(u)}
+            onNavigateToChat={() => setActiveTab('chat')}
+          />
+        )}
+
+        {/* DIRECT MESSAGES PRIMARY VIEW (نافذة المحادثات المباشرة كعنصر أساسي) */}
+        {activeTab === 'chat' && (
+          <DirectChatView 
+            onOpenProfile={(u) => navigateToProfile(u)}
+          />
+        )}
+
+        {/* CREATE / EDIT ACTIVITY PRIMARY VIEW (نافذة نشر نشاط تطوعي كعنصر أساسي) */}
+        {activeTab === 'create-activity' && (
+          <CreateActivityView 
+            onBack={() => {
+              setActivityToEdit(null);
+              setActiveTab('activities');
+            }}
+            activityToEdit={activityToEdit}
           />
         )}
 
@@ -140,8 +183,14 @@ const AppContent: React.FC = () => {
           <ActivitiesView 
             onSelectActivity={(act) => setSelectedActivity(act)}
             onOpenSubmitProof={(subId) => setSubmissionIdForProof(subId)}
-            onOpenCreateActivity={() => setShowCreateActivityModal(true)}
-            onEditActivity={(act) => setActivityToEdit(act)}
+            onOpenCreateActivity={() => {
+              setActivityToEdit(null);
+              setActiveTab('create-activity');
+            }}
+            onEditActivity={(act) => {
+              setActivityToEdit(act);
+              setActiveTab('create-activity');
+            }}
           />
         )}
 
@@ -240,6 +289,24 @@ const AppContent: React.FC = () => {
               <LayoutGrid className="w-5 h-5" />
             </div>
             <span className="text-[10px] mt-0.5 tracking-tight font-bold">اللوحة</span>
+          </button>
+
+          {/* Snap Map (خريطة سناب) */}
+          <button
+            onClick={() => {
+              setActiveTab('snapmap');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            className={`flex flex-col items-center justify-center flex-1 py-1 px-1 rounded-xl transition cursor-pointer min-h-[48px] ${
+              activeTab === 'snapmap'
+                ? 'text-rose-600 font-black'
+                : 'text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <div className={`p-1 rounded-lg transition ${activeTab === 'snapmap' ? 'bg-rose-100 text-rose-700 scale-110' : ''}`}>
+              <MapPin className="w-5 h-5" />
+            </div>
+            <span className="text-[10px] mt-0.5 tracking-tight font-bold">خريطة سناب</span>
           </button>
 
           {/* Activities */}
@@ -382,6 +449,31 @@ const AppContent: React.FC = () => {
           }}
         />
       )}
+
+      {/* Story Viewer Modal */}
+      <StoryViewerModal 
+        onSelectUser={(uid) => {
+          const u = allUsers.find(x => x.id === uid);
+          if (u) navigateToProfile(u);
+        }}
+      />
+
+      {/* Streak Modal */}
+      <StreakModal 
+        isOpen={showStreakModal}
+        onClose={() => setShowStreakModal(false)}
+        onOpenLeaderboard={() => setActiveTab('leaderboard')}
+      />
+
+      {/* Direct 1-on-1 Chat Drawer / Modal */}
+      <DirectChatDrawerModal 
+        isOpen={isChatDrawerOpen || activeTab === 'chat'}
+        onClose={() => {
+          closeChatDrawer();
+          if (activeTab === 'chat') setActiveTab('feed');
+        }}
+        onOpenProfile={(u) => navigateToProfile(u)}
+      />
 
     </div>
   );

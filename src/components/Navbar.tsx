@@ -27,7 +27,9 @@ import {
   LayoutGrid,
   Flame,
   Bell,
-  Database
+  Database,
+  MapPin,
+  MessageCircle
 } from 'lucide-react';
 
 interface NavbarProps {
@@ -63,6 +65,9 @@ export const Navbar: React.FC<NavbarProps> = ({
     isLoggedIn, 
     logoutUser,
     unreadNotificationsCount,
+    unreadDirectMessagesCount,
+    setShowStreakModal,
+    openChatWithUser,
     activities,
     isShamsAdmin,
     mongoDbStatus
@@ -165,6 +170,35 @@ export const Navbar: React.FC<NavbarProps> = ({
             {/* Authenticated State Actions */}
             {isLoggedIn && (
               <>
+                {/* Streak Flame Badge Button */}
+                <button
+                  type="button"
+                  onClick={() => setShowStreakModal(true)}
+                  className="relative flex items-center gap-1.5 p-1.5 sm:px-2.5 py-1.5 rounded-xl border border-amber-300 bg-gradient-to-r from-amber-50 to-orange-50 hover:from-amber-100 hover:to-orange-100 text-amber-950 font-black text-xs transition cursor-pointer shadow-2xs group"
+                  title="الستريك التطوعي المستمر 🔥"
+                >
+                  <Flame className="w-4 h-4 text-amber-500 fill-amber-500 animate-bounce" />
+                  <span className="font-mono text-xs font-black">{currentUser.streakCount || 7}</span>
+                  {!currentUser.dailyCheckInDone && (
+                    <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping absolute -top-1 -right-1" />
+                  )}
+                </button>
+
+                {/* Direct Messages Chat Button */}
+                <button
+                  type="button"
+                  onClick={() => handleSelectTab('chat')}
+                  className="relative p-2 rounded-xl border border-slate-200 hover:border-slate-300 bg-white text-slate-700 hover:bg-slate-50 transition cursor-pointer shadow-2xs group"
+                  title="المحادثات والرسائل الخاصة 💬"
+                >
+                  <MessageCircle className="w-4 h-4 sm:w-4.5 sm:h-4.5 text-slate-700 group-hover:text-emerald-700 transition" />
+                  {unreadDirectMessagesCount > 0 && (
+                    <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-emerald-600 text-white rounded-full text-[10px] font-black flex items-center justify-center shadow-xs animate-pulse">
+                      {unreadDirectMessagesCount}
+                    </span>
+                  )}
+                </button>
+
                 {/* Notification Bell Button */}
                 <button
                   type="button"
@@ -410,25 +444,25 @@ export const Navbar: React.FC<NavbarProps> = ({
       {/* Main Responsive Tabs Bar - Always Visible on All Viewports */}
       <div className="bg-slate-50/90 border-t border-slate-200/80 px-2 sm:px-6 lg:px-8 py-1.5">
         {!isLoggedIn ? (
-          /* Guest View: EXACT REQUIREMENT - Show ONLY Posts and Volunteer Projects */
-          <div className="max-w-md mx-auto grid grid-cols-2 gap-2 w-full py-0.5">
+          /* Guest View: Show Feed, Activities, and Snap Map */
+          <div className="max-w-xl mx-auto grid grid-cols-3 gap-2 w-full py-0.5">
             {/* Tab: Feed (المنشورات) */}
             <button
               onClick={() => handleSelectTab('feed')}
-              className={`flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs sm:text-sm font-black transition cursor-pointer ${
+              className={`flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs sm:text-sm font-black transition cursor-pointer ${
                 activeTab === 'feed'
                   ? 'bg-gradient-to-r from-emerald-600 to-teal-700 text-white shadow-sm'
                   : 'bg-white text-slate-700 hover:bg-emerald-50 hover:text-emerald-800 border border-slate-200'
               }`}
             >
               <LayoutGrid className={`w-4 h-4 ${activeTab === 'feed' ? 'text-amber-300' : 'text-emerald-600'}`} />
-              <span>المنشورات المجتمعية</span>
+              <span>اللوحة العامة</span>
             </button>
 
             {/* Tab: Activities (المشاريع التطوعية) */}
             <button
               onClick={() => handleSelectTab('activities')}
-              className={`flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs sm:text-sm font-black transition cursor-pointer ${
+              className={`flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs sm:text-sm font-black transition cursor-pointer ${
                 activeTab === 'activities'
                   ? 'bg-emerald-700 text-white shadow-sm'
                   : 'bg-white text-slate-700 hover:bg-slate-100 hover:text-slate-900 border border-slate-200'
@@ -436,6 +470,19 @@ export const Navbar: React.FC<NavbarProps> = ({
             >
               <Compass className={`w-4 h-4 ${activeTab === 'activities' ? 'text-white' : 'text-emerald-600'}`} />
               <span>المشاريع التطوعية</span>
+            </button>
+
+            {/* Tab: Shams Map (خريطة شمس ماب) */}
+            <button
+              onClick={() => handleSelectTab('snapmap')}
+              className={`flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs sm:text-sm font-black transition cursor-pointer ${
+                activeTab === 'snapmap'
+                  ? 'bg-gradient-to-r from-amber-500 via-rose-500 to-indigo-600 text-white shadow-sm'
+                  : 'bg-white text-slate-700 hover:bg-rose-50 hover:text-rose-700 border border-slate-200'
+              }`}
+            >
+              <MapPin className={`w-4 h-4 ${activeTab === 'snapmap' ? 'text-white' : 'text-rose-500'}`} />
+              <span>شمس ماب 🗺️</span>
             </button>
           </div>
         ) : (
@@ -452,10 +499,56 @@ export const Navbar: React.FC<NavbarProps> = ({
             >
               <LayoutGrid className={`w-4 h-4 ${activeTab === 'feed' ? 'text-amber-300' : 'text-emerald-600'}`} />
               <span>اللوحة العامة (Feed)</span>
-              <span className="px-1.5 py-0.2 rounded-full text-[9px] font-black bg-amber-400 text-slate-950">
-                جديد
+            </button>
+
+            {/* Tab 0.5: National Shams Map (خريطة شمس ماب الوطنية) */}
+            <button
+              onClick={() => handleSelectTab('snapmap')}
+              className={`flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer shrink-0 ${
+                activeTab === 'snapmap'
+                  ? 'bg-gradient-to-r from-amber-500 via-rose-500 to-indigo-600 text-white shadow-sm'
+                  : 'bg-white text-slate-800 hover:bg-rose-50 hover:text-rose-700 border border-slate-200/60'
+              }`}
+            >
+              <MapPin className={`w-4 h-4 ${activeTab === 'snapmap' ? 'text-white' : 'text-rose-500'}`} />
+              <span>شمس ماب (Shams Map) 🗺️</span>
+              <span className="px-1.5 py-0.2 rounded-full text-[9px] font-black bg-amber-400 text-slate-950 animate-pulse">
+                58 ولاية
               </span>
             </button>
+
+            {/* Tab 0.8: Direct Chat (المحادثات الخاصة بين الأفراد) */}
+            <button
+              onClick={() => handleSelectTab('chat')}
+              className={`relative flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer shrink-0 ${
+                activeTab === 'chat'
+                  ? 'bg-emerald-600 text-white shadow-sm'
+                  : 'bg-white text-slate-700 hover:bg-slate-100 hover:text-slate-900 border border-slate-200/60'
+              }`}
+            >
+              <MessageCircle className={`w-4 h-4 ${activeTab === 'chat' ? 'text-white' : 'text-emerald-600'}`} />
+              <span>المحادثات الخاصة (Chat)</span>
+              {unreadDirectMessagesCount > 0 && (
+                <span className="px-1.5 py-0.2 rounded-full text-[10px] font-black bg-rose-600 text-white">
+                  {unreadDirectMessagesCount}
+                </span>
+              )}
+            </button>
+
+            {/* Tab: Create Activity as primary tab if authorized or active */}
+            {(currentUser.role === 'general_admin' || currentUser.role === 'institution_admin' || activeTab === 'create-activity') && (
+              <button
+                onClick={() => handleSelectTab('create-activity')}
+                className={`flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer shrink-0 ${
+                  activeTab === 'create-activity'
+                    ? 'bg-emerald-800 text-white shadow-sm ring-2 ring-emerald-400/40'
+                    : 'bg-emerald-50 text-emerald-900 hover:bg-emerald-100 border border-emerald-300'
+                }`}
+              >
+                <Plus className="w-4 h-4 text-emerald-700" />
+                <span>نشر مشروع تطوعي</span>
+              </button>
+            )}
 
             {/* Tab 1: Activities */}
             <button

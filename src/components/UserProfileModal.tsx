@@ -18,7 +18,9 @@ import {
   ExternalLink,
   Medal,
   Clock,
-  UserCheck
+  UserCheck,
+  Flame,
+  MessageCircle
 } from 'lucide-react';
 
 interface UserProfileModalProps {
@@ -32,7 +34,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   onClose,
   onSelectActivity
 }) => {
-  const { activities, submissions, season } = useApp();
+  const { activities, submissions, season, openChatWithUser, currentUser } = useApp();
   const [showCertificate, setShowCertificate] = useState(false);
 
   // Submissions by this user
@@ -163,6 +165,12 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                       {user.role === 'institution_admin' && 'مسؤول هيكل شباني'}
                       {user.role === 'media_admin' && 'إعلام المنصة'}
                     </span>
+                    {(user.streakCount || 7) > 0 && (
+                      <span className="flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-black bg-slate-950 text-amber-400 border border-amber-400/40 shadow-xs">
+                        <Flame className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                        <span>{user.streakCount || 7} يوم ستريك</span>
+                      </span>
+                    )}
                   </div>
 
                   <div className="flex flex-wrap items-center justify-center sm:justify-start gap-3 text-xs text-slate-300">
@@ -235,13 +243,28 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                   </div>
                 </div>
 
-                <button
-                  onClick={() => setShowCertificate(true)}
-                  className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shrink-0 cursor-pointer shadow-xs"
-                >
-                  <Award className="w-4 h-4 text-amber-400" />
-                  <span>عرض الشهادة الرسمية</span>
-                </button>
+                <div className="flex items-center gap-2 flex-wrap">
+                  {currentUser.id !== user.id && (
+                    <button
+                      onClick={() => {
+                        onClose();
+                        openChatWithUser(user);
+                      }}
+                      className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shrink-0 cursor-pointer shadow-xs"
+                    >
+                      <MessageCircle className="w-4 h-4" />
+                      <span>محادثة خاصة 💬</span>
+                    </button>
+                  )}
+
+                  <button
+                    onClick={() => setShowCertificate(true)}
+                    className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shrink-0 cursor-pointer shadow-xs"
+                  >
+                    <Award className="w-4 h-4 text-amber-400" />
+                    <span>عرض الشهادة الرسمية</span>
+                  </button>
+                </div>
               </div>
 
               {/* Badges Earned */}

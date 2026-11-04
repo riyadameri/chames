@@ -16,7 +16,11 @@ import {
   ReactionType,
   NotificationItem,
   AppNotificationType,
-  UpdateUserProfilePayload
+  UpdateUserProfilePayload,
+  UserStory,
+  DirectMessage,
+  DirectConversation,
+  WilayaMapLocation
 } from '../types';
 import { 
   INITIAL_ACTIVITIES, 
@@ -28,6 +32,7 @@ import {
 } from '../data/mockData';
 import { INITIAL_USER_POSTS } from '../data/mockPosts';
 import { INITIAL_NOTIFICATIONS } from '../data/initialNotifications';
+import { INITIAL_STORIES, INITIAL_MESSAGES, ALGERIA_WILAYAS_GEO } from '../data/algeriaMapData';
 
 interface ToastNotification {
   id: string;
@@ -132,6 +137,36 @@ interface AppContextType {
   getActivitySubmissions: (activityId: string) => ActivitySubmission[];
   getActivityLeaderboard: (activityId: string) => { user: UserAccount; points: number; units: number; itemsCount: number }[];
   getUserSubmissions: (userId: string) => ActivitySubmission[];
+
+  // Stories (الستوريات)
+  stories: UserStory[];
+  activeStoryModal: UserStory | null;
+  setActiveStoryModal: (story: UserStory | null) => void;
+  createStory: (payload: { caption?: string; mediaUrl?: string; backgroundColor?: string; textColor?: string; activityTag?: string; wilaya?: string }) => { success: boolean; message: string; story?: UserStory };
+  deleteStory: (storyId: string) => void;
+  toggleStoryLike: (storyId: string) => void;
+  markStoryAsViewed: (storyId: string) => void;
+
+  // Streak System (الستريك التطوعي 🔥)
+  claimDailyStreak: () => { success: boolean; message: string; pointsBonus: number; streakCount: number };
+  showStreakModal: boolean;
+  setShowStreakModal: (show: boolean) => void;
+  useStreakFreeze: () => { success: boolean; message: string };
+
+  // Direct Messaging System (المحادثات الخاصة بين الأفراد)
+  directMessages: DirectMessage[];
+  activeChatPartner: UserAccount | null;
+  isChatDrawerOpen: boolean;
+  openChatWithUser: (user: UserAccount) => void;
+  closeChatDrawer: () => void;
+  sendDirectMessage: (receiverId: string, content: string, mediaUrl?: string, isVoiceNote?: boolean, audioDuration?: number) => { success: boolean; message: string };
+  unreadDirectMessagesCount: number;
+  conversations: DirectConversation[];
+
+  // National Snap Map (خريطة النشاطات)
+  selectedMapWilaya: WilayaMapLocation | null;
+  setSelectedMapWilaya: (w: WilayaMapLocation | null) => void;
+  openMapAtWilaya: (wilayaNameOrCode: string) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -147,6 +182,8 @@ const STORAGE_KEYS = {
   POSTS: 'shams_user_posts_v2',
   SUBSCRIPTIONS: 'shams_subscriptions_v2',
   NOTIFICATIONS: 'shams_notifications_v2',
+  STORIES: 'shams_stories_v2',
+  MESSAGES: 'shams_messages_v2',
 };
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -170,16 +207,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         merged[idx] = {
           ...merged[idx],
           ...official,
+          streakCount: merged[idx].streakCount ?? 14,
+          longestStreak: merged[idx].longestStreak ?? 28,
+          streakFreezeTokens: merged[idx].streakFreezeTokens ?? 2,
+          dailyCheckInDone: merged[idx].dailyCheckInDone ?? false,
           password: official.password,
           username: official.username,
           role: official.role,
           name: official.name,
         };
       } else {
-        merged.push(official);
+        merged.push({
+          ...official,
+          streakCount: 14,
+          longestStreak: 28,
+          streakFreezeTokens: 2,
+          dailyCheckInDone: false
+        });
       }
     }
-    return merged.length > 0 ? merged : INITIAL_USERS;
+    return merged.map(u => ({
+      ...u,
+      streakCount: u.streakCount ?? 7,
+      longestStreak: u.longestStreak ?? 15,
+      streakFreezeTokens: u.streakFreezeTokens ?? 1,
+      dailyCheckInDone: u.dailyCheckInDone ?? false
+    }));
   });
 
   const [currentUserId, setCurrentUserId] = useState<string>(() => {
@@ -238,6 +291,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [season] = useState<SeasonInfo>(INITIAL_SEASON);
   const [selectedActivityId, setSelectedActivityId] = useState<string | null>(null);
   const [toasts, setToasts] = useState<ToastNotification[]>([]);
+
+  // Stories (الستوريات)
+  const [stories, setStories] = useState<UserStory[]>(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.STORIES);
+    return saved ? JSON.parse(saved) : INITIAL_STORIES;
+  });
+  const [activeStoryModal, setActiveStoryModal] = useState<UserStory | null>(null);
+
+  // Direct Messages (المحادثات الخاصة بين الأفراد)
+  const [directMessages, setDirectMessages] = useState<DirectMessage[]>(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.MESSAGES);
+    return saved ? JSON.parse(saved) : INITIAL_MESSAGES;
+  });
+  const [activeChatPartner, setActiveChatPartner] = useState<UserAccount | null>(null);
+  const [isChatDrawerOpen, setIsChatDrawerOpen] = useState<boolean>(false);
+
+  // Streak Modal state (الستريك التطوعي 🔥)
+  const [showStreakModal, setShowStreakModal] = useState<boolean>(false);
+
+  // National Snap Map state (خريطة سناب الوطنية)
+  const [selectedMapWilaya, setSelectedMapWilaya] = useState<WilayaMapLocation | null>(null);
 
   // Direct MongoDB Database State
   const [mongoDbStatus, setMongoDbStatus] = useState<{
@@ -379,6 +453,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(notifications));
   }, [notifications]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.STORIES, JSON.stringify(stories));
+  }, [stories]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.MESSAGES, JSON.stringify(directMessages));
+  }, [directMessages]);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.CURRENT_USER_ID, currentUserId);
@@ -1801,6 +1883,332 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return mySubs.length + 12;
   };
 
+  // ================= STREAK SYSTEM (الستريك التطوعي 🔥) =================
+  const claimDailyStreak = (): { success: boolean; message: string; pointsBonus: number; streakCount: number } => {
+    if (!currentUser) return { success: false, message: 'يرجى تسجيل الدخول أولاً', pointsBonus: 0, streakCount: 0 };
+    
+    const todayStr = new Date().toISOString().split('T')[0];
+    if (currentUser.dailyCheckInDone && currentUser.lastActiveDate === todayStr) {
+      showToast({
+        type: 'info',
+        title: 'الستريك مسجل اليوم مسبقاً! 🔥',
+        message: `لقد حافظت على شعلة ستريك ${currentUser.streakCount || 1} يوم، عد غداً لمواصلة العطاء!`
+      });
+      return { success: false, message: 'تم تثبيت الستريك اليوم بالفعل', pointsBonus: 0, streakCount: currentUser.streakCount || 1 };
+    }
+
+    const newStreak = (currentUser.streakCount || 0) + 1;
+    let pointsBonus = 50;
+    let extraToken = 0;
+
+    // Milestones bonuses
+    if (newStreak === 3) pointsBonus = 100;
+    else if (newStreak === 7) { pointsBonus = 250; extraToken = 1; }
+    else if (newStreak === 14) { pointsBonus = 500; extraToken = 1; }
+    else if (newStreak === 30) { pointsBonus = 1500; extraToken = 2; }
+    else if (newStreak % 10 === 0) pointsBonus = 300;
+
+    const newLongest = Math.max(newStreak, currentUser.longestStreak || newStreak);
+
+    try {
+      confetti({
+        particleCount: 80,
+        spread: 70,
+        origin: { y: 0.6 }
+      });
+    } catch (e) {}
+
+    setUsers(prev => prev.map(u => {
+      if (u.id === currentUser.id) {
+        return {
+          ...u,
+          streakCount: newStreak,
+          longestStreak: newLongest,
+          points: (u.points || 0) + pointsBonus,
+          lastActiveDate: todayStr,
+          dailyCheckInDone: true,
+          streakFreezeTokens: (u.streakFreezeTokens || 0) + extraToken
+        };
+      }
+      return u;
+    }));
+
+    showToast({
+      type: 'points',
+      title: `🔥 تم تثبيت الستريك اليومي (${newStreak} أيام)!`,
+      message: `مبروك! نلت +${pointsBonus} نقطة تطوعية إضافية على استمراريتك.`,
+      pointsAdded: pointsBonus
+    });
+
+    addNotification({
+      type: 'streak_milestone',
+      title: `شعلة ستريك ${newStreak} أيام متتالية! 🔥`,
+      message: `أحسنت! حافظت على حضورك وعطائك التطوعي لمدة ${newStreak} أيام ونلت +${pointsBonus} نقطة.`,
+      points: pointsBonus,
+      linkTab: 'feed'
+    });
+
+    return { success: true, message: `تم تمديد الستريك إلى ${newStreak} يوم بنجاح!`, pointsBonus, streakCount: newStreak };
+  };
+
+  const useStreakFreeze = (): { success: boolean; message: string } => {
+    if (!currentUser) return { success: false, message: 'يرجى تسجيل الدخول' };
+    const tokens = currentUser.streakFreezeTokens || 0;
+    if (tokens <= 0) {
+      showToast({
+        type: 'warning',
+        title: 'لا تملك دروع تجميد',
+        message: 'يمكنك كسب دروع تجميد جديدة عند بلوغ ستريك 7 و 14 يوماً.'
+      });
+      return { success: false, message: 'لا تملك دروع تجميد كافية' };
+    }
+
+    setUsers(prev => prev.map(u => {
+      if (u.id === currentUser.id) {
+        return {
+          ...u,
+          streakFreezeTokens: tokens - 1
+        };
+      }
+      return u;
+    }));
+
+    showToast({
+      type: 'success',
+      title: 'تم تفعيل درع تجميد الستريك 🛡️',
+      message: 'ستريكك التطوعي محمي الآن ولن ينكسر إذا انشغلت يوماً واحداً!'
+    });
+
+    return { success: true, message: 'تم تفعيل الدرع بنجاح' };
+  };
+
+  // ================= STORIES SYSTEM (الستوريات) =================
+  const createStory = (payload: { caption?: string; mediaUrl?: string; backgroundColor?: string; textColor?: string; activityTag?: string; wilaya?: string }): { success: boolean; message: string; story?: UserStory } => {
+    if (!currentUser) return { success: false, message: 'يرجى تسجيل الدخول' };
+    
+    const newStory: UserStory = {
+      id: `story-${Date.now()}`,
+      userId: currentUser.id,
+      userName: currentUser.name,
+      userAvatar: currentUser.avatar,
+      userRole: currentUser.role,
+      userStreak: currentUser.streakCount || 1,
+      wilaya: payload.wilaya || currentUser.wilaya,
+      mediaUrl: payload.mediaUrl,
+      caption: payload.caption,
+      backgroundColor: payload.backgroundColor,
+      textColor: payload.textColor || '#ffffff',
+      createdAt: new Date().toISOString(),
+      expiresAt: new Date(Date.now() + 24 * 3600 * 1000).toISOString(),
+      viewsCount: 1,
+      viewedBy: [currentUser.id],
+      likesCount: 0,
+      likedBy: [],
+      activityTag: payload.activityTag
+    };
+
+    setStories(prev => [newStory, ...prev]);
+
+    showToast({
+      type: 'success',
+      title: 'تم نشر قصتك بنجاح! 📸',
+      message: 'ستظهر قصتك الآن لجميع المتطوعين على لوحة الستوريات وخريطة شمس ماب الوطنية.'
+    });
+
+    return { success: true, message: 'تم نشر القصة بنجاح', story: newStory };
+  };
+
+  const deleteStory = (storyId: string) => {
+    const existing = stories.find(s => s.id === storyId);
+    if (!existing) return;
+    if (existing.userId !== currentUser.id && !canManageAllContent) {
+      showToast({
+        type: 'error',
+        title: 'غير مصرح',
+        message: 'لا يمكنك حذف ستوري لم تقم بنشرها.'
+      });
+      return;
+    }
+
+    setStories(prev => prev.filter(s => s.id !== storyId));
+    if (activeStoryModal?.id === storyId) {
+      setActiveStoryModal(null);
+    }
+    showToast({
+      type: 'info',
+      title: 'تم حذف القصة',
+      message: 'تمت إزالة الستوري من المنصة بنجاح.'
+    });
+  };
+
+  const toggleStoryLike = (storyId: string) => {
+    if (!currentUser) return;
+    setStories(prev => prev.map(s => {
+      if (s.id === storyId) {
+        const isLiked = s.likedBy?.includes(currentUser.id);
+        const newLikedBy = isLiked
+          ? (s.likedBy || []).filter(id => id !== currentUser.id)
+          : [...(s.likedBy || []), currentUser.id];
+        return {
+          ...s,
+          likedBy: newLikedBy,
+          likesCount: newLikedBy.length
+        };
+      }
+      return s;
+    }));
+  };
+
+  const markStoryAsViewed = (storyId: string) => {
+    if (!currentUser) return;
+    setStories(prev => prev.map(s => {
+      if (s.id === storyId) {
+        if (!s.viewedBy?.includes(currentUser.id)) {
+          const newViewed = [...(s.viewedBy || []), currentUser.id];
+          return {
+            ...s,
+            viewedBy: newViewed,
+            viewsCount: newViewed.length
+          };
+        }
+      }
+      return s;
+    }));
+  };
+
+  // ================= DIRECT MESSAGES SYSTEM (المحادثات الخاصة) =================
+  const openChatWithUser = (user: UserAccount) => {
+    setActiveChatPartner(user);
+    setIsChatDrawerOpen(true);
+    // Mark messages from this user as read
+    setDirectMessages(prev => prev.map(m => {
+      if (m.senderId === user.id && m.receiverId === currentUser.id && !m.read) {
+        return { ...m, read: true };
+      }
+      return m;
+    }));
+  };
+
+  const closeChatDrawer = () => {
+    setIsChatDrawerOpen(false);
+  };
+
+  const sendDirectMessage = (receiverId: string, content: string, mediaUrl?: string, isVoiceNote?: boolean, audioDuration?: number): { success: boolean; message: string } => {
+    if (!currentUser) return { success: false, message: 'يرجى تسجيل الدخول لإرسال رسالة' };
+    const receiver = users.find(u => u.id === receiverId) || activeChatPartner;
+    if (!receiver) return { success: false, message: 'المستلم غير موجود' };
+
+    const newMsg: DirectMessage = {
+      id: `msg-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      senderId: currentUser.id,
+      senderName: currentUser.name,
+      senderAvatar: currentUser.avatar,
+      receiverId: receiver.id,
+      receiverName: receiver.name,
+      content,
+      mediaUrl,
+      isVoiceNote,
+      audioDuration,
+      createdAt: new Date().toISOString(),
+      read: false
+    };
+
+    setDirectMessages(prev => [...prev, newMsg]);
+
+    // Simulate polite reply after 2.5s if communicating with staff or institution
+    if (receiver.id !== currentUser.id && (receiver.role?.includes('admin') || receiver.role === 'institution')) {
+      setTimeout(() => {
+        const replies = [
+          'وعليكم السلام ورحمة الله! مرحباً بك، نشكر تواصلك وسنتابع طلبك ومبادرتك بكل سرور ✨',
+          'أهلاً بك بطل شمس! يسعدنا انضمامك معنا ومشاركتك في الأنشطة التطوعية القادمة 🔥',
+          'مرحباً بك! تم تسجيل استفسارك وسنوافيك بالتفاصيل الكاملة في أقرب وقت إن شاء الله.'
+        ];
+        const autoReplyText = replies[Math.floor(Math.random() * replies.length)];
+        const autoReply: DirectMessage = {
+          id: `msg-reply-${Date.now()}`,
+          senderId: receiver.id,
+          senderName: receiver.name,
+          senderAvatar: receiver.avatar,
+          receiverId: currentUser.id,
+          receiverName: currentUser.name,
+          content: autoReplyText,
+          createdAt: new Date().toISOString(),
+          read: false
+        };
+        setDirectMessages(curr => [...curr, autoReply]);
+        addNotification({
+          type: 'new_direct_message',
+          title: `رسالة جديدة من ${receiver.name} 💬`,
+          message: autoReplyText.substring(0, 75) + '...',
+          actor: {
+            name: receiver.name,
+            avatar: receiver.avatar,
+            role: receiver.role
+          },
+          linkTab: 'chat'
+        });
+      }, 2500);
+    }
+
+    return { success: true, message: 'تم إرسال الرسالة بنجاح' };
+  };
+
+  const unreadDirectMessagesCount = directMessages.filter(
+    m => m.receiverId === currentUser.id && !m.read
+  ).length;
+
+  const conversations: DirectConversation[] = React.useMemo(() => {
+    const threadMap: Record<string, DirectConversation> = {};
+    const relevantMsgs = directMessages.filter(
+      m => m.senderId === currentUser.id || m.receiverId === currentUser.id
+    );
+
+    relevantMsgs.forEach(m => {
+      const otherId = m.senderId === currentUser.id ? m.receiverId : m.senderId;
+      const otherUser = users.find(u => u.id === otherId) || {
+        id: otherId,
+        name: m.senderId === currentUser.id ? m.receiverName : m.senderName,
+        avatar: m.senderId === currentUser.id ? '' : m.senderAvatar,
+        role: 'individual' as UserRole,
+        wilaya: 'الجزائر العاصمة',
+      };
+
+      const threadId = [currentUser.id, otherId].sort().join('__');
+      const isUnread = m.receiverId === currentUser.id && !m.read;
+
+      if (!threadMap[threadId] || new Date(m.createdAt) > new Date(threadMap[threadId].updatedAt)) {
+        threadMap[threadId] = {
+          id: threadId,
+          participantId: otherId,
+          participantName: otherUser.name || 'مستخدم شمس',
+          participantAvatar: otherUser.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=250&q=80',
+          participantRole: (otherUser as any).role || 'individual',
+          participantWilaya: (otherUser as any).wilaya || 'الجزائر',
+          participantStreak: (otherUser as any).streakCount || 5,
+          lastMessage: m,
+          unreadCount: (threadMap[threadId]?.unreadCount || 0) + (isUnread ? 1 : 0),
+          updatedAt: m.createdAt
+        };
+      } else if (isUnread) {
+        threadMap[threadId].unreadCount += 1;
+      }
+    });
+
+    return Object.values(threadMap).sort(
+      (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+    );
+  }, [directMessages, currentUser.id, users]);
+
+  // ================= SNAP MAP HELPER (خريطة سناب الوطنية) =================
+  const openMapAtWilaya = (wilayaNameOrCode: string) => {
+    const found = ALGERIA_WILAYAS_GEO.find(
+      w => w.code === wilayaNameOrCode || w.nameAr.includes(wilayaNameOrCode) || wilayaNameOrCode.includes(w.nameAr)
+    );
+    if (found) {
+      setSelectedMapWilaya(found);
+    }
+  };
+
   return (
     <AppContext.Provider
       value={{
@@ -1874,6 +2282,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         getActivitySubmissions,
         getActivityLeaderboard,
         getUserSubmissions,
+        // Stories
+        stories,
+        activeStoryModal,
+        setActiveStoryModal,
+        createStory,
+        deleteStory,
+        toggleStoryLike,
+        markStoryAsViewed,
+        // Streak
+        claimDailyStreak,
+        showStreakModal,
+        setShowStreakModal,
+        useStreakFreeze,
+        // Direct Chat
+        directMessages,
+        activeChatPartner,
+        isChatDrawerOpen,
+        openChatWithUser,
+        closeChatDrawer,
+        sendDirectMessage,
+        unreadDirectMessagesCount,
+        conversations,
+        // National Snap Map
+        selectedMapWilaya,
+        setSelectedMapWilaya,
+        openMapAtWilaya,
       }}
     >
       {children}

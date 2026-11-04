@@ -199,9 +199,139 @@ export const INITIAL_USERS: UserAccount[] = [
   }
 ];
 
-export const INITIAL_CLUBS: AffiliatedClub[] = [];
+export const INITIAL_CLUBS: AffiliatedClub[] = [
+  {
+    id: 'club-ouargla',
+    name: 'جمعية واحات النخيل والبيئة ورقلة',
+    specialty: 'بيئة وتشجير واحات',
+    institutionId: 'inst-ouargla-1',
+    institutionName: 'المركب الرياضي الجواري ورقلة',
+    leaderName: 'أحمد التوهامي',
+    phone: '0555 30 30 30',
+    membersCount: 45,
+    points: 1250,
+    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=250&q=80',
+    joinedDate: '2026-09-05',
+    enrolledActivitiesCount: 3
+  },
+  {
+    id: 'club-touggourt',
+    name: 'نادي الابتكار والتطوع الأخضر تقرت',
+    specialty: 'رقميات وتضامن واحات',
+    institutionId: 'inst-touggourt-1',
+    institutionName: 'دار الشباب تقرت المركز',
+    leaderName: 'ياسين ريغي',
+    phone: '0555 55 55 55',
+    membersCount: 38,
+    points: 980,
+    avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=250&q=80',
+    joinedDate: '2026-09-10',
+    enrolledActivitiesCount: 2
+  }
+];
 
-export const INITIAL_ACTIVITIES: Activity[] = [];
+export const INITIAL_ACTIVITIES: Activity[] = [
+  {
+    id: 'act-ouargla-1',
+    title: 'حملة حماية وتشجير واحات النخيل الكبرى - ورقلة',
+    shortDescription: 'غرس وتلقيم 500 نخلة وشتلة صحراوية وتنظيف قنوات السقي التقليدية في قصور وواحات ورقلة.',
+    fullDescription: 'مبادرة بيئية وطنية تنطلق من ولاية ورقلة بالتعاون مع مديرية الشباب والرياضة والجمعيات الفاعلة. تستهدف المبادرة إعادة إحياء واحة ورقلة العتيقة وتثمين السواقي التقليدية وتكثيف الحزام الأخضر الصاد للرمال.',
+    category: 'environment',
+    targetAudience: 'all',
+    basePoints: 200,
+    requiresPhotos: true,
+    requiresLocation: true,
+    allowMultipleProof: true,
+    unitName: 'فسيلة نخيل / شتلة صحراوية',
+    pointsPerUnit: 35,
+    creatorRole: 'general_admin',
+    wilaya: '30 - ورقلة',
+    municipality: 'ورقلة - حاسي مسعود - سيدي خويلد',
+    startDate: '2026-09-20',
+    endDate: '2026-11-30',
+    status: 'active',
+    coverImage: 'https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?auto=format&fit=crop&w=900&q=80',
+    targetParticipants: 400,
+    enrolledCount: 185,
+    completedCount: 64,
+    featured: true
+  },
+  {
+    id: 'act-touggourt-1',
+    title: 'مبادرة الابتكار الرقمي ومحو الأمية المعلوماتية - تقرت',
+    shortDescription: 'ورشات تدريبية ميدانية في الرقمنة والذكاء الاصطناعي لأشبال وشباب قصور تقرت وتماسين والمقارين.',
+    fullDescription: 'مشروع شبابي تقني واعد تحت رعاية منصة شمس التطوع ينظم دورات تدريبية متخصصة ومجانية في البرمجة وتطبيقات الويب والذكاء الاصطناعي لصالح شباب ولاية تقرت داخل دور الشباب والمراكز الثقافية.',
+    category: 'digital',
+    targetAudience: 'all',
+    basePoints: 180,
+    requiresPhotos: true,
+    requiresLocation: true,
+    allowMultipleProof: true,
+    unitName: 'ورشة تدريبية / مستفيد',
+    pointsPerUnit: 30,
+    creatorRole: 'general_admin',
+    wilaya: '55 - تقرت',
+    municipality: 'تقرت - تماسين - المقارين',
+    startDate: '2026-09-25',
+    endDate: '2026-12-15',
+    status: 'active',
+    coverImage: 'https://images.unsplash.com/photo-1531482615713-2afd69097998?auto=format&fit=crop&w=900&q=80',
+    targetParticipants: 300,
+    enrolledCount: 142,
+    completedCount: 48,
+    featured: true
+  },
+  {
+    id: 'act-ouargla-touggourt-solidarity',
+    title: 'قافلة التضامن والصحة الميدانية لواحات الجنوب (ورقلة - تقرت)',
+    shortDescription: 'قوافل تضامنية لتوزيع الحقائب المدرسية والفحوصات الطبية المجانية للقرى البدوية المعزولة.',
+    fullDescription: 'تظاهرة إنسانية مشتركة تجمع متطوعي ولايتي ورقلة وتقرت لتقديم الدعم الغذائي والطبي والمدرسي لأبناء العائلات في المناطق النائية والقصور العتيقة في وادي ريغ وحوض ورقلة.',
+    category: 'social',
+    targetAudience: 'all',
+    basePoints: 220,
+    requiresPhotos: true,
+    requiresLocation: true,
+    allowMultipleProof: true,
+    unitName: 'حقيبة مدرسية / سلة مساعدات',
+    pointsPerUnit: 40,
+    creatorRole: 'general_admin',
+    wilaya: '30 - ورقلة',
+    municipality: 'ورقلة وتقرت الكبرى',
+    startDate: '2026-10-01',
+    endDate: '2026-11-25',
+    status: 'active',
+    coverImage: 'https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?auto=format&fit=crop&w=900&q=80',
+    targetParticipants: 350,
+    enrolledCount: 210,
+    completedCount: 92,
+    featured: true
+  },
+  {
+    id: 'act-capital-trees',
+    title: 'الحملة الوطنية الكبرى لغرس مليون شجرة (الجزائر العاصمة والولايات المجاورة)',
+    shortDescription: 'حملة تشجير ضخمة بغابات باينام وبوشاوي وسيدي فرج بمشاركة شبابية واسعة.',
+    fullDescription: 'حملة وطنية استراتيجية بتنظيم وزارة الشباب والرياضة لإعادة تشجير المساحات الغابية المتضررة وتزيين المحيط الحضري.',
+    category: 'environment',
+    targetAudience: 'all',
+    basePoints: 150,
+    requiresPhotos: true,
+    requiresLocation: true,
+    allowMultipleProof: true,
+    unitName: 'شجرة مغروسة',
+    pointsPerUnit: 25,
+    creatorRole: 'general_admin',
+    wilaya: '16 - الجزائر العاصمة',
+    municipality: 'باينام - بوشاوي - زرالدة',
+    startDate: '2026-09-15',
+    endDate: '2026-12-30',
+    status: 'active',
+    coverImage: 'https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?auto=format&fit=crop&w=900&q=80',
+    targetParticipants: 1000,
+    enrolledCount: 420,
+    completedCount: 155,
+    featured: true
+  }
+];
 
 export const INITIAL_SUBMISSIONS: ActivitySubmission[] = [];
 
@@ -218,6 +348,6 @@ export const ALGERIAN_WILAYAS = [
   '36 - الطارف', '37 - تندوف', '38 - تسمسيلت', '39 - الوادي', '40 - خنشلة',
   '41 - سوق أهراس', '42 - تيبازة', '43 - ميلة', '44 - عين الدفلى', '45 - النعامة',
   '46 - عين تموشنت', '47 - غرداية', '48 - غليزان', '49 - تيميمون', '50 - برج باجي مختار',
-  '51 - أولاد جلال', '52 - بني عباس', '53 - عين صالح', '54 - عين قزام', '55 - توقرت',
+  '51 - أولاد جلال', '52 - بني عباس', '53 - عين صالح', '54 - عين قزام', '55 - تقرت',
   '56 - جانت', '57 - المغير', '58 - المنيعة'
 ];

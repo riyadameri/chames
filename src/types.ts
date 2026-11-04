@@ -169,6 +169,11 @@ export interface UserAccount {
   rank: number;
   completedTasksCount: number;
   hoursVolunteered: number;
+  streakCount?: number;
+  longestStreak?: number;
+  lastActiveDate?: string;
+  streakFreezeTokens?: number;
+  dailyCheckInDone?: boolean;
   affiliatedInstitutionId?: string;
   affiliatedInstitutionName?: string;
   accreditationDocName?: string;
@@ -233,6 +238,7 @@ export interface PostComment {
   authorName: string;
   authorAvatar: string;
   authorRole: UserRole;
+  authorStreak?: number;
   content: string;
   createdAt: string;
 }
@@ -244,12 +250,81 @@ export interface UserPost {
   authorAvatar: string;
   authorRole: UserRole;
   authorWilaya: string;
+  authorStreak?: number;
   content: string;
   imageUrl?: string;
   activityTag?: string;
   createdAt: string;
   reactions: Record<ReactionType, string[]>; // list of user IDs who reacted
   comments: PostComment[];
+}
+
+// ----------------- STORIES (الستوريهات) -----------------
+export interface UserStory {
+  id: string;
+  userId: string;
+  userName: string;
+  userAvatar: string;
+  userRole: UserRole;
+  userStreak?: number;
+  wilaya: string;
+  mediaUrl?: string;
+  caption?: string;
+  backgroundColor?: string;
+  textColor?: string;
+  createdAt: string;
+  expiresAt: string;
+  viewsCount: number;
+  viewedBy?: string[];
+  likesCount: number;
+  likedBy?: string[];
+  activityTag?: string;
+}
+
+// ----------------- DIRECT MESSAGES (محادثات بين الأفراد) -----------------
+export interface DirectMessage {
+  id: string;
+  senderId: string;
+  senderName: string;
+  senderAvatar: string;
+  receiverId: string;
+  receiverName: string;
+  content: string;
+  mediaUrl?: string;
+  audioDuration?: number;
+  isVoiceNote?: boolean;
+  createdAt: string;
+  read: boolean;
+}
+
+export interface DirectConversation {
+  id: string; // usually sorted sender_receiver or unique thread ID
+  participantId: string;
+  participantName: string;
+  participantAvatar: string;
+  participantRole: UserRole;
+  participantWilaya: string;
+  participantStreak?: number;
+  lastMessage: DirectMessage;
+  unreadCount: number;
+  updatedAt: string;
+}
+
+// ----------------- SHAMS MAP LOCATIONS (خريطة شمس ماب للنشاطات) -----------------
+export interface WilayaMapLocation {
+  id: string;
+  code: string;
+  name: string;
+  nameAr: string;
+  region: 'شمال' | 'وسط' | 'شرق' | 'غرب' | 'جنوب' | 'هضاب';
+  xPercent: number; // 0 - 100 on national coordinate grid
+  yPercent: number; // 0 - 100 on national coordinate grid
+  lat: number;
+  lng: number;
+  activityCount: number;
+  volunteersCount: number;
+  heatLevel: 'low' | 'medium' | 'high' | 'hot';
+  isFeaturedOasis?: boolean; // خاص بـ ورقلة وتقرت وواحات الجنوب
 }
 
 export type AppNotificationType = 
@@ -259,6 +334,9 @@ export type AppNotificationType =
   | 'new_activity'         // نشاط تطوعي جديد متاح
   | 'submission_approved'  // تم اعتماد إثبات المشاركة
   | 'badge_earned'         // الحصول على شارة أو وسام
+  | 'streak_milestone'     // إنجاز في الستريك
+  | 'new_direct_message'   // رسالة خاصة جديدة
+  | 'story_liked'          // تفاعل على الستوري
   | 'announcement';        // تنبيه وزاري أو بلاغ هام
 
 export interface NotificationItem {
@@ -275,7 +353,8 @@ export interface NotificationItem {
     avatar: string;
     role?: UserRole;
   };
-  linkTab?: string;         // 'activities' | 'feed' | 'profile' | 'leaderboard' | 'workspace' | 'media'
+  linkTab?: string;         // 'activities' | 'feed' | 'profile' | 'leaderboard' | 'workspace' | 'media' | 'snapmap' | 'chat'
   actionTargetId?: string;  // activityId or postId
 }
+
 
