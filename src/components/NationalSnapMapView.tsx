@@ -152,10 +152,18 @@ export const NationalSnapMapView: React.FC<NationalSnapMapViewProps> = ({
 
     mapInstanceRef.current = map;
 
+    // CARTO Basemap API Key support
+    const CARTO_API_KEY = (import.meta.env.VITE_CARTO_API_KEY as string) || 'cb1_52yn_1_2417759bdbb8e683d86f1bf7';
+
+    const getCartoTileUrl = (theme: 'dark' | 'voyager') => {
+      const keyParam = CARTO_API_KEY ? `?key=${CARTO_API_KEY}` : '';
+      return theme === 'dark' 
+        ? `https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png${keyParam}`
+        : `https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png${keyParam}`;
+    };
+
     // Initial TileLayer
-    const tileUrl = mapTheme === 'dark' 
-      ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
-      : 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
+    const tileUrl = getCartoTileUrl(mapTheme);
 
     const tileLayer = L.tileLayer(tileUrl, {
       subdomains: 'abcd',
@@ -183,9 +191,11 @@ export const NationalSnapMapView: React.FC<NationalSnapMapViewProps> = ({
   useEffect(() => {
     if (!mapInstanceRef.current || !tileLayerRef.current) return;
 
+    const CARTO_API_KEY = (import.meta.env.VITE_CARTO_API_KEY as string) || 'cb1_52yn_1_2417759bdbb8e683d86f1bf7';
+    const keyParam = CARTO_API_KEY ? `?key=${CARTO_API_KEY}` : '';
     const tileUrl = mapTheme === 'dark' 
-      ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
-      : 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
+      ? `https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png${keyParam}`
+      : `https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png${keyParam}`;
 
     tileLayerRef.current.setUrl(tileUrl);
   }, [mapTheme]);
