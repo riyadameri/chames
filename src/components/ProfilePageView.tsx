@@ -525,19 +525,21 @@ export const ProfilePageView: React.FC<ProfilePageViewProps> = ({
                     onClick={() => toggleSubscription(activeUser.id)}
                     className={`flex-1 sm:flex-initial flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl font-black text-xs transition shadow-sm cursor-pointer ${
                       isSubscribed 
-                        ? 'bg-slate-100 hover:bg-rose-50 text-slate-800 hover:text-rose-700 border border-slate-300' 
-                        : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-700/20'
+                        ? 'bg-emerald-50 hover:bg-rose-50 text-emerald-900 hover:text-rose-700 border border-emerald-300' 
+                        : activeUser.role === 'institution'
+                          ? 'bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 text-slate-950 font-black shadow-md'
+                          : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-700/20'
                     }`}
                   >
                     {isSubscribed ? (
                       <>
                         <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                        <span>مشترك ومتابع ✓</span>
+                        <span>{activeUser.role === 'institution' ? 'أنت منخرط في الجمعية ✅' : 'مشترك ومتابع ✓'}</span>
                       </>
                     ) : (
                       <>
                         <BellRing className="w-4 h-4" />
-                        <span>اشتراك ومتابعة</span>
+                        <span>{activeUser.role === 'institution' ? 'انخراط ومتابعة الجمعية 🏛️' : 'اشتراك ومتابعة'}</span>
                       </>
                     )}
                   </button>

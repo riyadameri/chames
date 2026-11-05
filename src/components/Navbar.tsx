@@ -91,20 +91,20 @@ export const Navbar: React.FC<NavbarProps> = ({
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-xs">
       
       {/* Top Main Row */}
-      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-2.5">
-        <div className="flex items-center justify-between gap-3">
+      <div className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8 py-2">
+        <div className="flex items-center justify-between gap-1.5 sm:gap-3">
           
           {/* Logo Brand */}
           <div 
             onClick={() => handleSelectTab('activities')}
-            className="flex items-center gap-2.5 cursor-pointer group shrink-0"
+            className="flex items-center gap-1.5 sm:gap-2.5 cursor-pointer group shrink-0"
           >
             {/* Logo from /assets/logo.png */}
             <div className="relative flex items-center justify-center group-hover:scale-105 transition transform">
               <img 
                 src="/assets/logo.png" 
                 alt="شعار منصة شمس التطوع" 
-                className="h-10 sm:h-12 w-auto max-w-[140px] object-contain rounded-xl"
+                className="h-8 sm:h-11 w-auto max-w-[85px] sm:max-w-[140px] object-contain rounded-xl"
                 onError={(e) => {
                   const target = e.currentTarget;
                   target.style.display = 'none';
@@ -114,27 +114,27 @@ export const Navbar: React.FC<NavbarProps> = ({
               />
               <div 
                 style={{ display: 'none' }}
-                className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-amber-500 to-emerald-600 items-center justify-center text-white font-black text-lg shadow-sm"
+                className="w-8 h-8 sm:w-10 sm:h-10 rounded-2xl bg-gradient-to-tr from-amber-500 to-emerald-600 items-center justify-center text-white font-black text-sm sm:text-lg shadow-sm"
               >
                 ☀️
               </div>
             </div>
 
             <div>
-              <div className="flex items-center gap-1.5">
-                <span className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">شَمْس</span>
-                <span className="px-2 py-0.5 text-[10px] font-bold bg-amber-100 text-amber-800 rounded-md border border-amber-300">
+              <div className="flex items-center gap-1">
+                <span className="text-base sm:text-2xl font-black text-slate-900 tracking-tight">شَمْس</span>
+                <span className="hidden xs:inline px-1.5 py-0.5 text-[9px] sm:text-[10px] font-bold bg-amber-100 text-amber-800 rounded-md border border-amber-300">
                   منصة التطوع
                 </span>
               </div>
-              <p className="text-[10px] sm:text-[11px] text-slate-500 font-medium hidden sm:block">
+              <p className="text-[10px] sm:text-[11px] text-slate-500 font-medium hidden md:block">
                 وزارة الشباب والرياضة — الجمهورية الجزائرية
               </p>
             </div>
           </div>
 
           {/* Central Top Quick Search Bar */}
-          <div className="flex-1 max-w-md lg:max-w-xl mx-2 sm:mx-4">
+          <div className="flex-1 max-w-xs sm:max-w-md lg:max-w-xl mx-1 sm:mx-4">
             <TopSearchBar 
               onSelectActivity={(act) => {
                 if (onSelectActivity) onSelectActivity(act);
@@ -152,18 +152,17 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
 
           {/* User Controls & Profile Actions Area */}
-          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+          <div className="flex items-center gap-1 sm:gap-2.5 shrink-0">
 
             {/* Platform Guide Button (دليل المنصة وشرح شمس ماب والجوائز) */}
             <button
               type="button"
               onClick={() => onOpenAbout && onOpenAbout()}
-              className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl border border-amber-300 bg-gradient-to-r from-amber-50 to-yellow-50 hover:from-amber-100 hover:to-yellow-100 text-amber-950 font-black text-xs transition cursor-pointer shadow-2xs shrink-0"
+              className="flex items-center gap-1 px-2 sm:px-3 py-1.5 rounded-xl border border-amber-300 bg-gradient-to-r from-amber-50 to-yellow-50 hover:from-amber-100 hover:to-yellow-100 text-amber-950 font-black text-xs transition cursor-pointer shadow-2xs shrink-0"
               title="دليل منصة شمس التطوع وشرح الميزات والجوائز 💡"
             >
               <Sparkles className="w-3.5 h-3.5 text-amber-600" />
-              <span className="hidden sm:inline">دليل المنصة 💡</span>
-              <span className="sm:hidden">الدليل</span>
+              <span className="hidden md:inline">دليل المنصة 💡</span>
             </button>
 
             {/* Authenticated State Actions */}

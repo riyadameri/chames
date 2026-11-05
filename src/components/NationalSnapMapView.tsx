@@ -1,7 +1,8 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
+import L from 'leaflet';
 import { useApp } from '../context/AppContext';
 import { ALGERIA_WILAYAS_GEO } from '../data/algeriaMapData';
-import { WilayaMapLocation, Activity, UserStory, UserAccount } from '../types';
+import { WilayaMapLocation, Activity, UserAccount } from '../types';
 import { StoriesTray } from './StoriesTray';
 import { 
   MapPin, 
@@ -43,7 +44,6 @@ export const NationalSnapMapView: React.FC<NationalSnapMapViewProps> = ({
 }) => {
   const { 
     activities, 
-    posts, 
     stories, 
     allUsers, 
     currentUser, 
@@ -54,12 +54,16 @@ export const NationalSnapMapView: React.FC<NationalSnapMapViewProps> = ({
     setShowStreakModal
   } = useApp();
 
-  const [activeFilter, setActiveFilter] = useState<'all' | 'activities' | 'stories' | 'oasis' | 'clubs'>('all');
-  const [mapTheme, setMapTheme] = useState<'shams_dark' | 'daylight'>('shams_dark');
-  const [zoomLevel, setZoomLevel] = useState<number>(1);
+  const [activeFilter, setActiveFilter] = useState<'all' | 'activities' | 'stories' | 'volunteers'>('all');
+  const [mapTheme, setMapTheme] = useState<'dark' | 'voyager'>('dark');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
-  // Find Ouargla (30) & Touggourt (55) for quick focus
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const mapInstanceRef = useRef<L.Map | null>(null);
+  const tileLayerRef = useRef<L.TileLayer | null>(null);
+  const markersGroupRef = useRef<L.LayerGroup | null>(null);
+
+  // Find Ouargla (30) & Touggourt (55) for prominent oasis focus
   const ouarglaWilaya = useMemo(() => {
     return ALGERIA_WILAYAS_GEO.find(w => w.code === '30' || w.nameAr.includes('ورقلة'));
   }, []);
@@ -85,7 +89,6 @@ export const NationalSnapMapView: React.FC<NationalSnapMapViewProps> = ({
     isFeaturedOasis: true
   };
 
-  // Active Wilaya currently selected for detail drawer
   const activeWilaya = selectedMapWilaya || defaultWilaya;
 
   // Safe helper to compare wilaya names across different formats
@@ -118,131 +121,236 @@ export const NationalSnapMapView: React.FC<NationalSnapMapViewProps> = ({
     return (allUsers || []).filter(u => matchWilaya(u?.wilaya, activeWilaya.nameAr));
   }, [allUsers, activeWilaya]);
 
-  // Filter Wilayas based on search & filter category
+  // Filtered wilayas for search dropdown
   const filteredWilayas = useMemo(() => {
-    let list = ALGERIA_WILAYAS_GEO || [];
-
-    if (activeFilter === 'oasis') {
-      list = list.filter(w => w.isFeaturedOasis || w.region === 'جنوب');
-    }
-
-    if (!searchQuery.trim()) return list;
-    const q = searchQuery.trim().toLowerCase();
-    return list.filter(w => 
-      (w?.nameAr && w.nameAr.includes(searchQuery.trim())) || 
-      (w?.name && w.name.toLowerCase().includes(q)) ||
-      (w?.code && w.code === searchQuery.trim())
+    if (!searchQuery.trim()) return [];
+    const q = searchQuery.toLowerCase().trim();
+    return ALGERIA_WILAYAS_GEO.filter(w => 
+      w.nameAr.includes(q) || 
+      w.name.toLowerCase().includes(q) || 
+      w.code.includes(q)
     );
-  }, [searchQuery, activeFilter]);
+  }, [searchQuery]);
 
-  const handleZoom = (direction: 'in' | 'out') => {
-    setZoomLevel(prev => {
-      if (direction === 'in') return Math.min(prev + 0.25, 2.0);
-      return Math.max(prev - 0.25, 0.85);
+  // Initialize Leaflet Map
+  useEffect(() => {
+    if (!mapContainerRef.current || mapInstanceRef.current) return;
+
+    // Center on real geographic center of Algeria [28.0339, 2.6322]
+    const map = L.map(mapContainerRef.current, {
+      center: [29.5, 3.5],
+      zoom: window.innerWidth < 640 ? 4.8 : 5.4,
+      minZoom: 4,
+      maxZoom: 14,
+      zoomControl: false,
+      attributionControl: false,
+      maxBounds: [
+        [17.5, -9.5], // Southwest Sahara bounds
+        [38.5, 13.0]  // Northeast Mediterranean bounds
+      ]
     });
+
+    mapInstanceRef.current = map;
+
+    // Initial TileLayer
+    const tileUrl = mapTheme === 'dark' 
+      ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
+      : 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
+
+    const tileLayer = L.tileLayer(tileUrl, {
+      subdomains: 'abcd',
+      maxZoom: 19
+    }).addTo(map);
+
+    tileLayerRef.current = tileLayer;
+
+    // Marker Layer Group
+    const markersGroup = L.layerGroup().addTo(map);
+    markersGroupRef.current = markersGroup;
+
+    // Fix map container size upon rendering
+    setTimeout(() => {
+      map.invalidateSize();
+    }, 250);
+
+    return () => {
+      map.remove();
+      mapInstanceRef.current = null;
+    };
+  }, []);
+
+  // Handle Map Theme updates
+  useEffect(() => {
+    if (!mapInstanceRef.current || !tileLayerRef.current) return;
+
+    const tileUrl = mapTheme === 'dark' 
+      ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
+      : 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
+
+    tileLayerRef.current.setUrl(tileUrl);
+  }, [mapTheme]);
+
+  // Render authentic Wilaya markers with emphasis on Ouargla (30) & Touggourt (55)
+  useEffect(() => {
+    if (!mapInstanceRef.current || !markersGroupRef.current) return;
+
+    markersGroupRef.current.clearLayers();
+
+    ALGERIA_WILAYAS_GEO.forEach(wilaya => {
+      const isSelected = activeWilaya.code === wilaya.code;
+      const isOuargla = wilaya.code === '30';
+      const isTouggourt = wilaya.code === '55';
+      const isFeatured = isOuargla || isTouggourt;
+
+      // Count actual activities for this wilaya
+      const actCount = (activities || []).filter(a => matchWilaya(a.wilaya, wilaya.nameAr)).length || wilaya.activityCount;
+
+      let iconHtml = '';
+      let iconSize: [number, number] = [32, 32];
+      let iconAnchor: [number, number] = [16, 16];
+
+      if (isFeatured) {
+        // Radiant Oasis Beacon for Ouargla & Touggourt
+        iconSize = [54, 54];
+        iconAnchor = [27, 27];
+        const haloColor = isOuargla ? 'rgba(245, 158, 11, 0.45)' : 'rgba(16, 185, 129, 0.45)';
+        const borderColor = isOuargla ? '#f59e0b' : '#10b981';
+
+        iconHtml = `
+          <div style="position: relative; display: flex; align-items: center; justify-content: center; width: 54px; height: 54px; cursor: pointer;">
+            <div style="position: absolute; inset: 0; border-radius: 9999px; background: ${haloColor}; animation: ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;"></div>
+            <div style="position: relative; width: 44px; height: 44px; border-radius: 9999px; background: #022c22; border: 2.5px solid ${borderColor}; box-shadow: 0 0 15px ${borderColor}; display: flex; flex-direction: column; align-items: center; justify-content: center; color: white;">
+              <span style="font-size: 14px; line-height: 1;">🌴</span>
+              <span style="font-size: 9px; font-weight: 900; font-family: monospace; color: #fde047; margin-top: 1px;">${wilaya.code}</span>
+            </div>
+            <div style="position: absolute; bottom: -8px; background: #0f172a; color: #fff; font-size: 9px; font-weight: 800; padding: 1px 6px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.2); white-space: nowrap; box-shadow: 0 2px 4px rgba(0,0,0,0.5);">
+              ${wilaya.nameAr}
+            </div>
+          </div>
+        `;
+      } else {
+        // Standard Wilaya Marker
+        iconSize = [32, 32];
+        iconAnchor = [16, 16];
+        const bg = isSelected ? '#059669' : '#0f172a';
+        const border = isSelected ? '#34d399' : '#334155';
+
+        iconHtml = `
+          <div style="position: relative; display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; cursor: pointer;">
+            <div style="width: 26px; height: 26px; border-radius: 9999px; background: ${bg}; border: 1.5px solid ${border}; display: flex; align-items: center; justify-content: center; color: white; font-size: 10px; font-weight: 900; font-family: monospace; box-shadow: 0 2px 6px rgba(0,0,0,0.4);">
+              ${wilaya.code}
+            </div>
+            ${actCount > 0 ? `
+              <div style="position: absolute; top: -3px; right: -3px; width: 14px; height: 14px; border-radius: 9999px; background: #ea580c; color: white; font-size: 8px; font-weight: 900; display: flex; align-items: center; justify-content: center; border: 1px solid white;">
+                ${actCount > 9 ? '9+' : actCount}
+              </div>
+            ` : ''}
+          </div>
+        `;
+      }
+
+      const customIcon = L.divIcon({
+        html: iconHtml,
+        className: 'custom-algeria-marker',
+        iconSize,
+        iconAnchor
+      });
+
+      const marker = L.marker([wilaya.lat, wilaya.lng], { icon: customIcon });
+
+      // Click to focus and select wilaya
+      marker.on('click', () => {
+        setSelectedMapWilaya(wilaya);
+        if (mapInstanceRef.current) {
+          mapInstanceRef.current.flyTo([wilaya.lat, wilaya.lng], 8, {
+            duration: 1.2
+          });
+        }
+      });
+
+      marker.addTo(markersGroupRef.current!);
+    });
+  }, [activeWilaya.code, activities, setSelectedMapWilaya]);
+
+  // Focus on specific wilaya
+  const focusOnWilaya = (wilaya: WilayaMapLocation, zoom = 8) => {
+    setSelectedMapWilaya(wilaya);
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.flyTo([wilaya.lat, wilaya.lng], zoom, {
+        duration: 1.2
+      });
+    }
   };
 
-  const focusOnWilaya = (w?: WilayaMapLocation) => {
-    if (w) {
-      setSelectedMapWilaya(w);
-      setZoomLevel(1.25);
+  const resetToAlgeriaCenter = () => {
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.flyTo([29.5, 3.5], window.innerWidth < 640 ? 4.8 : 5.4, {
+        duration: 1.2
+      });
     }
   };
 
   return (
-    <div className="space-y-4 text-right animate-in fade-in duration-300" dir="rtl">
+    <div className="space-y-4 max-w-7xl mx-auto px-2 sm:px-4 py-2">
       
-      {/* Top Banner: Stories Tray on Shams Map */}
-      <StoriesTray className="shadow-md" />
+      {/* Stories Tray on Top of Map */}
+      <StoriesTray />
 
-      {/* Shams Map Header Control Card */}
-      <div className={`p-4 sm:p-5 rounded-3xl border transition-all ${
-        mapTheme === 'shams_dark' 
-          ? 'bg-slate-950 border-slate-800 text-white shadow-xl' 
-          : 'bg-white border-slate-200 text-slate-800 shadow-sm'
-      }`}>
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-          
-          {/* Title & Stats */}
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-500 via-rose-500 to-indigo-600 flex items-center justify-center text-white text-2xl shadow-md">
-              🇩🇿
+      {/* ================= MAP CONTROLS & OASIS HIGHLIGHT BAR ================= */}
+      <div className="bg-slate-900 text-white rounded-3xl p-3.5 sm:p-5 shadow-xl border border-slate-800">
+        
+        {/* Top Header Row */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="p-1.5 rounded-xl bg-amber-400 text-slate-950 font-black text-xs flex items-center gap-1 shadow-sm">
+                <MapPin className="w-3.5 h-3.5 fill-slate-950" />
+                <span>شمس ماب 🗺️</span>
+              </span>
+              <h2 className="text-base sm:text-lg font-black text-white">
+                خريطة النشاطات التطوعية الحقيقية للجمهورية الجزائرية
+              </h2>
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-lg sm:text-xl font-black">
-                  خريطة شمس ماب الوطنية (Shams Map)
-                </h2>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-400 text-slate-950">
-                  58 ولاية
-                </span>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-500 text-white flex items-center gap-1">
-                  <span>🌴 واحات ورقلة وتقرت</span>
-                </span>
-              </div>
-              <p className={`text-xs mt-0.5 ${mapTheme === 'shams_dark' ? 'text-slate-400' : 'text-slate-500'}`}>
-                الخريطة الجغرافية الحقيقية للتراب الوطني الجزائري — تصفح الأنشطة الميدانية والستوريات الجغرافية عبر 58 ولاية.
-              </p>
-            </div>
+            <p className="text-xs text-slate-400 mt-1">
+              خريطة جغرافية حية ودقيقة لكل ولايات الوطن (58 ولاية) مع تركيز خاص على واحات الجنوب ورقلة وتقرت 🌴
+            </p>
           </div>
 
-          {/* Quick Controls: Theme Toggle & Search */}
-          <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+          {/* Map Controls */}
+          <div className="flex items-center flex-wrap gap-2">
             
-            {/* Wilaya Search Selector */}
-            <div className="relative flex-1 sm:w-56">
-              <Search className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2" />
-              <input 
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="ابحث عن ولاية (ورقلة، تقرت...)..."
-                className={`w-full pr-9 pl-3 py-2 text-xs rounded-xl border focus:outline-none focus:ring-2 focus:ring-emerald-500 transition ${
-                  mapTheme === 'shams_dark'
-                    ? 'bg-slate-900 border-slate-700 text-white placeholder-slate-500'
-                    : 'bg-slate-50 border-slate-200 text-slate-800'
-                }`}
-              />
-            </div>
-
-            {/* Dark / Daylight Theme Toggle */}
+            {/* Map Theme Toggle */}
             <button
-              onClick={() => setMapTheme(mapTheme === 'shams_dark' ? 'daylight' : 'shams_dark')}
-              className={`p-2 rounded-xl border text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
-                mapTheme === 'shams_dark'
-                  ? 'bg-slate-900 border-slate-700 text-amber-300 hover:bg-slate-800'
-                  : 'bg-slate-100 border-slate-200 text-slate-700 hover:bg-slate-200'
-              }`}
-              title="تغيير مظهر الخريطة"
+              onClick={() => setMapTheme(prev => prev === 'dark' ? 'voyager' : 'dark')}
+              className="p-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold flex items-center gap-1.5 border border-slate-700 transition cursor-pointer"
+              title="تغيير نمط الخريطة"
             >
-              {mapTheme === 'shams_dark' ? (
+              {mapTheme === 'dark' ? (
                 <>
-                  <Moon className="w-4 h-4 fill-amber-300" />
-                  <span className="hidden sm:inline">شمس ليلي</span>
+                  <Sun className="w-3.5 h-3.5 text-amber-400" />
+                  <span>النمط النهاري</span>
                 </>
               ) : (
                 <>
-                  <Sun className="w-4 h-4 text-amber-500" />
-                  <span className="hidden sm:inline">شمس نهاري</span>
+                  <Moon className="w-3.5 h-3.5 text-indigo-400" />
+                  <span>النمط الليلي</span>
                 </>
               )}
             </button>
 
             {/* Zoom Controls */}
-            <div className={`flex items-center rounded-xl border overflow-hidden ${
-              mapTheme === 'shams_dark' ? 'border-slate-800 bg-slate-900' : 'border-slate-200 bg-slate-50'
-            }`}>
-              <button 
-                onClick={() => handleZoom('in')} 
-                className="p-2 hover:bg-emerald-600 hover:text-white transition cursor-pointer"
-                title="تكبير"
+            <div className="flex items-center bg-slate-800 rounded-xl border border-slate-700 p-0.5">
+              <button
+                onClick={() => mapInstanceRef.current?.zoomIn()}
+                className="p-1.5 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg transition cursor-pointer"
+                title="تكبير الخريطة"
               >
                 <ZoomIn className="w-4 h-4" />
               </button>
-              <button 
-                onClick={() => handleZoom('out')} 
-                className="p-2 hover:bg-emerald-600 hover:text-white transition cursor-pointer"
-                title="تصغير"
+              <button
+                onClick={() => mapInstanceRef.current?.zoomOut()}
+                className="p-1.5 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg transition cursor-pointer"
+                title="تصغير الخريطة"
               >
                 <ZoomOut className="w-4 h-4" />
               </button>
@@ -258,18 +366,17 @@ export const NationalSnapMapView: React.FC<NationalSnapMapViewProps> = ({
             </button>
 
           </div>
-
         </div>
 
         {/* Quick Focus Bar: Ouargla & Touggourt Prominence */}
-        <div className="flex flex-wrap items-center gap-2 pt-3 mt-3 border-t border-slate-800/40">
+        <div className="flex flex-wrap items-center gap-2 pt-3">
           <span className="text-xs font-bold text-amber-400 flex items-center gap-1">
-            <span>تركيز واحات الجنوب:</span>
+            <span>تركيز سريع:</span>
           </span>
 
           {ouarglaWilaya && (
             <button
-              onClick={() => focusOnWilaya(ouarglaWilaya)}
+              onClick={() => focusOnWilaya(ouarglaWilaya, 9)}
               className={`px-3 py-1.5 rounded-xl text-xs font-black transition cursor-pointer flex items-center gap-1.5 ${
                 activeWilaya.code === '30'
                   ? 'bg-amber-400 text-slate-950 shadow-md ring-2 ring-amber-300'
@@ -278,14 +385,14 @@ export const NationalSnapMapView: React.FC<NationalSnapMapViewProps> = ({
             >
               <span>🌴 ورقلة (30)</span>
               <span className="text-[10px] bg-slate-900/60 px-1.5 py-0.2 rounded text-white font-mono">
-                {ouarglaWilaya.activityCount} مشاريع
+                {wilayaActivities.length || ouarglaWilaya.activityCount} مشاريع
               </span>
             </button>
           )}
 
           {touggourtWilaya && (
             <button
-              onClick={() => focusOnWilaya(touggourtWilaya)}
+              onClick={() => focusOnWilaya(touggourtWilaya, 9)}
               className={`px-3 py-1.5 rounded-xl text-xs font-black transition cursor-pointer flex items-center gap-1.5 ${
                 activeWilaya.code === '55'
                   ? 'bg-amber-400 text-slate-950 shadow-md ring-2 ring-amber-300'
@@ -300,414 +407,310 @@ export const NationalSnapMapView: React.FC<NationalSnapMapViewProps> = ({
           )}
 
           <button
-            onClick={() => {
-              setActiveFilter('oasis');
-              setZoomLevel(1.15);
-            }}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
-              activeFilter === 'oasis'
-                ? 'bg-emerald-600 text-white font-black'
-                : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-            }`}
+            onClick={resetToAlgeriaCenter}
+            className="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition cursor-pointer"
           >
-            واحات الجنوب ووادي ريغ (عرض مكثف)
+            كامل القطر الجزائري (58 ولاية)
           </button>
 
-          <button
-            onClick={() => setActiveFilter('all')}
-            className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
-              activeFilter === 'all'
-                ? 'bg-slate-700 text-white'
-                : 'bg-slate-900/60 text-slate-400 hover:text-white'
-            }`}
-          >
-            إعادة ضبط الخريطة
-          </button>
+          {/* Quick Wilaya Search Input */}
+          <div className="relative ml-auto">
+            <div className="flex items-center bg-slate-800 rounded-xl px-2.5 py-1 border border-slate-700">
+              <Search className="w-3.5 h-3.5 text-slate-400 ml-1.5" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="ابحث عن ولاية..."
+                className="bg-transparent text-xs text-white placeholder-slate-400 outline-none w-28 sm:w-36 text-right"
+              />
+              {searchQuery && (
+                <button 
+                  onClick={() => setSearchQuery('')}
+                  className="text-slate-400 hover:text-white text-xs"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+
+            {/* Filtered Dropdown */}
+            {filteredWilayas.length > 0 && (
+              <div className="absolute left-0 right-0 top-full mt-1 bg-slate-900 border border-slate-700 rounded-xl shadow-xl z-50 max-h-48 overflow-y-auto p-1 text-right">
+                {filteredWilayas.map(w => (
+                  <button
+                    key={w.id}
+                    onClick={() => {
+                      focusOnWilaya(w, 8);
+                      setSearchQuery('');
+                    }}
+                    className="w-full text-right p-2 rounded-lg hover:bg-slate-800 text-xs text-slate-200 flex items-center justify-between transition cursor-pointer"
+                  >
+                    <span>{w.nameAr}</span>
+                    <span className="font-mono text-amber-400 text-[10px]">({w.code})</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
         </div>
 
       </div>
 
-      {/* ================= INTERACTIVE AUTHENTIC ALGERIA MAP CANVAS ================= */}
-      <div className={`relative rounded-3xl overflow-hidden border shadow-2xl transition-all duration-300 ${
-        mapTheme === 'shams_dark'
-          ? 'bg-[#09101d] border-slate-800'
-          : 'bg-[#042f2e] border-slate-300'
-      }`}>
+      {/* ================= LEAFLET GEOGRAPHIC ALGERIA MAP CONTAINER ================= */}
+      <div className="relative rounded-3xl overflow-hidden border border-slate-800 shadow-2xl bg-slate-950 h-[480px] sm:h-[580px] w-full z-10">
         
-        {/* Subtle Latitude/Longitude Grid Lines */}
-        <div className="absolute inset-0 bg-[radial-gradient(#10b981_1px,transparent_1px)] [background-size:28px_28px] opacity-15 pointer-events-none" />
-        
-        {/* Top Floating Mini Bar: Current Selected Wilaya */}
-        <div className="absolute top-4 right-4 z-20 bg-slate-950/85 backdrop-blur-md text-white px-4 py-2 rounded-2xl border border-white/10 shadow-lg flex items-center gap-3">
-          <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
+        {/* Real Leaflet Map Mount Point */}
+        <div ref={mapContainerRef} className="w-full h-full" />
+
+        {/* Selected Wilaya Floating Badge (Top Right) */}
+        <div className="absolute top-4 right-4 z-20 bg-slate-950/90 backdrop-blur-md text-white px-4 py-2.5 rounded-2xl border border-white/10 shadow-xl flex items-center gap-3 pointer-events-none">
+          <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping shrink-0" />
           <div className="text-right">
-            <div className="text-[10px] text-emerald-400 font-bold">الولاية المحددة على شمس ماب:</div>
-            <div className="text-xs font-black flex items-center gap-1.5">
+            <div className="text-[10px] text-emerald-400 font-bold">الولاية المحددة:</div>
+            <div className="text-sm font-black flex items-center gap-1.5">
               <span>{activeWilaya.nameAr}</span>
               <span className="text-amber-300 font-mono">({activeWilaya.code})</span>
               {(activeWilaya.code === '30' || activeWilaya.code === '55') && (
-                <span className="text-xs">🌴</span>
+                <span className="text-xs">🌴 واحات الجنوب</span>
               )}
             </div>
           </div>
         </div>
 
-        {/* Center Canvas / Authentic Algeria SVG Map Area */}
-        <div 
-          className="relative w-full aspect-[4/3] sm:aspect-[16/11] max-h-[660px] overflow-hidden flex items-center justify-center p-4 transition-transform duration-200 select-none"
-          style={{ transform: `scale(${zoomLevel})` }}
-        >
-          
-          {/* Authentic Geographic SVG Outline of Algeria */}
-          <svg 
-            viewBox="0 0 1000 950" 
-            className="w-full h-full max-w-4xl filter drop-shadow-[0_0_30px_rgba(16,185,129,0.25)] pointer-events-none"
-          >
-            <defs>
-              <linearGradient id="algeriaGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor={mapTheme === 'shams_dark' ? '#064e3b' : '#047857'} stopOpacity="0.45" />
-                <stop offset="40%" stopColor={mapTheme === 'shams_dark' ? '#0f291e' : '#065f46'} stopOpacity="0.35" />
-                <stop offset="100%" stopColor={mapTheme === 'shams_dark' ? '#061611' : '#022c22'} stopOpacity="0.5" />
-              </linearGradient>
-
-              <radialGradient id="ouarglaHalo" cx="50%" cy="50%" r="50%">
-                <stop offset="0%" stopColor="#f59e0b" stopOpacity="0.5" />
-                <stop offset="100%" stopColor="#f59e0b" stopOpacity="0" />
-              </radialGradient>
-
-              <radialGradient id="touggourtHalo" cx="50%" cy="50%" r="50%">
-                <stop offset="0%" stopColor="#10b981" stopOpacity="0.5" />
-                <stop offset="100%" stopColor="#10b981" stopOpacity="0" />
-              </radialGradient>
-            </defs>
-
-            {/* Authentic Territorial Path of Algeria */}
-            <path 
-              d="
-                M 220,180 
-                C 300,160 420,130 540,105 
-                C 650,95 780,85 890,75 
-                L 885,190 
-                L 850,280 
-                L 890,360 
-                L 880,530 
-                L 895,660 
-                L 920,700 
-                L 800,760 
-                L 660,800 
-                L 540,780 
-                L 430,735 
-                L 310,630 
-                L 180,560 
-                L 70,520 
-                L 50,470 
-                L 110,420 
-                L 200,360 
-                L 240,300 
-                L 230,230 
-                Z
-              "
-              fill="url(#algeriaGradient)"
-              stroke="#34d399"
-              strokeWidth="2.5"
-              strokeLinejoin="round"
-              strokeLinecap="round"
-              className="transition duration-500"
-            />
-
-            {/* Northern Tell & Saharan Atlas Relief Contours */}
-            <path 
-              d="M 230,210 Q 520,160 880,125" 
-              stroke="#10b981" 
-              strokeWidth="1.2" 
-              strokeDasharray="4,4" 
-              fill="none" 
-              opacity="0.3" 
-            />
-            <path 
-              d="M 240,270 Q 520,225 845,195" 
-              stroke="#fbbf24" 
-              strokeWidth="1.2" 
-              strokeDasharray="5,5" 
-              fill="none" 
-              opacity="0.35" 
-            />
-
-            {/* Oasis Corridor Connecting Line: Biskra -> Touggourt -> Ouargla -> Hassi Messaoud */}
-            <path 
-              d="M 720,255 L 750,314 L 710,374 L 780,410" 
-              stroke="#f59e0b" 
-              strokeWidth="2.5" 
-              strokeDasharray="6,4" 
-              fill="none" 
-              opacity="0.85" 
-              className="animate-pulse"
-            />
-
-            {/* Radiant Glow Halos on Touggourt and Ouargla Region */}
-            <circle cx="750" cy="314" r="75" fill="url(#touggourtHalo)" />
-            <circle cx="710" cy="374" r="90" fill="url(#ouarglaHalo)" />
-
-            {/* Sahara Dunes Waves Texture */}
-            <path d="M 350,450 Q 420,430 490,450 T 630,450" stroke="#f59e0b" strokeWidth="0.8" opacity="0.25" fill="none" />
-            <path d="M 400,520 Q 470,500 540,520 T 680,520" stroke="#f59e0b" strokeWidth="0.8" opacity="0.25" fill="none" />
-            <path d="M 480,600 Q 550,580 620,600 T 760,600" stroke="#f59e0b" strokeWidth="0.8" opacity="0.25" fill="none" />
-
-            {/* Region Labels */}
-            <text x="540" y="70" fill="#a7f3d0" fontSize="14" fontWeight="bold" textAnchor="middle" opacity="0.6">
-              البحر الأبيض المتوسط
-            </text>
-            <text x="730" y="420" fill="#fde68a" fontSize="13" fontWeight="black" textAnchor="middle" opacity="0.9">
-              🌴 واحات الجنوب (ورقلة - تقرت)
-            </text>
-            <text x="500" y="680" fill="#6ee7b7" fontSize="15" fontWeight="bold" textAnchor="middle" opacity="0.4">
-              الصحراء الكبرى الجزائرية
-            </text>
-          </svg>
-
-          {/* Render Interactive Shams Map Pins for each Wilaya */}
-          {filteredWilayas.map((w) => {
-            const isSelected = activeWilaya?.id === w.id;
-            const wStories = (stories || []).filter(s => matchWilaya(s?.wilaya, w?.nameAr));
-            const hasStories = wStories.length > 0;
-            const isOasisFocus = w.code === '30' || w.code === '55';
-
-            return (
-              <div
-                key={w.id}
-                onClick={() => setSelectedMapWilaya(w)}
-                className={`absolute -translate-x-1/2 -translate-y-1/2 cursor-pointer z-10 transition-all duration-300 group ${
-                  isSelected ? 'scale-130 z-30' : isOasisFocus ? 'scale-115 hover:scale-125 z-25' : 'hover:scale-115 hover:z-20'
-                }`}
-                style={{ left: `${w.xPercent}%`, top: `${w.yPercent}%` }}
-              >
-                
-                {/* Pin Container */}
-                <div className="relative flex flex-col items-center">
-                  
-                  {/* Glowing Ring: Extra radiance for Ouargla & Touggourt */}
-                  <div className={`relative rounded-2xl p-0.5 transition shadow-lg ${
-                    isOasisFocus
-                      ? 'bg-gradient-to-tr from-amber-400 via-emerald-400 to-yellow-500 animate-pulse ring-4 ring-amber-400/40 p-[2.5px]'
-                      : hasStories 
-                        ? 'bg-gradient-to-tr from-amber-400 via-rose-500 to-indigo-500 animate-spin-slow p-[2px]' 
-                        : isSelected 
-                          ? 'bg-emerald-400 ring-4 ring-emerald-400/30' 
-                          : 'bg-slate-800/90 border border-slate-600'
-                  }`}>
-                    <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-[14px] overflow-hidden flex items-center justify-center text-white relative ${
-                      isOasisFocus ? 'bg-amber-950/90' : 'bg-slate-900'
-                    }`}>
-                      
-                      {/* Avatar or Icon or Palm */}
-                      {isOasisFocus ? (
-                        <div className="flex flex-col items-center justify-center">
-                          <span className="text-xs sm:text-sm">🌴</span>
-                          <span className="font-black text-[9px] text-amber-300 leading-none">{w.code}</span>
-                        </div>
-                      ) : hasStories && wStories[0]?.userAvatar ? (
-                        <img 
-                          src={wStories[0].userAvatar} 
-                          alt={w.nameAr}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <span className="font-black text-[11px] sm:text-xs text-amber-300">
-                          {w.code}
-                        </span>
-                      )}
-
-                      {/* Small badge count */}
-                      <span className="absolute -top-1 -right-1 bg-emerald-500 text-slate-950 text-[8px] font-black w-4 h-4 rounded-full flex items-center justify-center border border-white">
-                        {w.activityCount}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Pin Point Pointer */}
-                  <div className={`w-2 h-2 rotate-45 -mt-1 shadow-xs ${
-                    isOasisFocus ? 'bg-amber-500' : 'bg-slate-900 border-r border-b border-slate-600'
-                  }`} />
-
-                  {/* Wilaya Label Pill */}
-                  <div className={`mt-1 px-2.5 py-0.5 rounded-full text-[10px] font-black whitespace-nowrap shadow-md transition flex items-center gap-1 ${
-                    isSelected
-                      ? 'bg-amber-400 text-slate-950 scale-105 ring-2 ring-white'
-                      : isOasisFocus
-                        ? 'bg-amber-500 text-slate-950 font-black border border-amber-300'
-                        : 'bg-slate-900/90 text-slate-200 border border-white/10 group-hover:bg-emerald-600 group-hover:text-white'
-                  }`}>
-                    <span>{w.nameAr}</span>
-                    {isOasisFocus && <span>🌴</span>}
-                  </div>
-
-                </div>
-
-              </div>
-            );
-          })}
-
+        {/* Legend (Bottom Right) */}
+        <div className="absolute bottom-4 right-4 z-20 bg-slate-950/85 backdrop-blur-md text-slate-300 px-3 py-2 rounded-xl border border-white/10 text-[10px] font-bold flex items-center gap-3">
+          <div className="flex items-center gap-1">
+            <span className="w-2.5 h-2.5 rounded-full bg-amber-400 inline-block"></span>
+            <span>ورقلة وتقرت 🌴</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <span className="w-2.5 h-2.5 rounded-full bg-slate-600 inline-block"></span>
+            <span>باقي الولايات (58)</span>
+          </div>
         </div>
 
       </div>
 
-      {/* ================= SHAMS MAP BOTTOM DRAWER / CARDS ================= */}
-      <div className="bg-white rounded-3xl p-5 sm:p-6 shadow-md border border-slate-200/80 text-right space-y-4">
+      {/* ================= WILAYA DETAIL DRAWER & ACTIVITIES LIST ================= */}
+      <div className="bg-white rounded-3xl p-5 sm:p-6 shadow-sm border border-slate-200">
         
-        {/* Drawer Header */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+        {/* Wilaya Header & Stats */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
           <div className="flex items-center gap-3">
-            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-xl font-black shadow-xs ${
-              activeWilaya.code === '30' || activeWilaya.code === '55'
-                ? 'bg-gradient-to-tr from-amber-400 to-emerald-500 text-slate-950 ring-4 ring-amber-300/40'
-                : 'bg-emerald-100 text-emerald-800'
-            }`}>
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-700 text-white flex items-center justify-center font-black text-lg shadow-sm">
               {activeWilaya.code === '30' || activeWilaya.code === '55' ? '🌴' : activeWilaya.code}
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-base sm:text-lg font-black text-slate-900">
-                  ولاية {activeWilaya.nameAr} ({activeWilaya.code}) — إقليم {activeWilaya.region}
+                <h3 className="text-lg sm:text-xl font-black text-slate-900">
+                  ولاية {activeWilaya.nameAr}
                 </h3>
-                <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black ${
-                  activeWilaya.code === '30' || activeWilaya.code === '55'
-                    ? 'bg-amber-100 text-amber-900 border border-amber-300'
-                    : activeWilaya.heatLevel === 'hot' 
-                      ? 'bg-rose-100 text-rose-800' 
-                      : 'bg-emerald-100 text-emerald-800'
-                }`}>
-                  {activeWilaya.code === '30' ? '🌴 قطب الواحات والبترول' : activeWilaya.code === '55' ? '🌴 عاصمة وادي ريغ والتمور' : 'نشط ميدانياً'}
+                <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-100 text-amber-800">
+                  {activeWilaya.region === 'جنوب' ? 'واحات الجنوب الجزائري' : `إقليم ${activeWilaya.region}`}
                 </span>
               </div>
-              <p className="text-xs text-slate-500">
-                {activeWilaya.activityCount} مشاريع تطوعية نشطة • {activeWilaya.volunteersCount}+ متطوع معتمد في الولاية
+              <p className="text-xs text-slate-500 mt-0.5">
+                {wilayaActivities.length} مشاريع تطوعية نشطة • {wilayaVolunteers.length} متطوعين مسجلين • {wilayaStories.length} ستوريات
               </p>
             </div>
           </div>
 
-          {/* Quick Actions for Selected Wilaya */}
-          <div className="flex items-center gap-2">
-            {wilayaStories.length > 0 && (
-              <button
-                onClick={() => setActiveStoryModal(wilayaStories[0])}
-                className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-rose-600 hover:from-amber-600 hover:to-rose-700 text-white font-black text-xs flex items-center gap-1.5 shadow-xs transition cursor-pointer"
-              >
-                <Eye className="w-4 h-4" />
-                <span>مشاهدة ستوريات {activeWilaya.nameAr} ({wilayaStories.length})</span>
-              </button>
-            )}
-
-            {onNavigateToChat && (
-              <button
-                onClick={onNavigateToChat}
-                className="px-3.5 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-black text-xs flex items-center gap-1.5 shadow-xs transition cursor-pointer"
-              >
-                <MessageCircle className="w-4 h-4" />
-                <span>فتح المحادثات الميدانية</span>
-              </button>
-            )}
+          {/* Filter Tabs for this Wilaya */}
+          <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-2xl text-xs font-bold">
+            <button
+              onClick={() => setActiveFilter('all')}
+              className={`px-3 py-1.5 rounded-xl transition cursor-pointer ${
+                activeFilter === 'all' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              الكل ({wilayaActivities.length + wilayaStories.length})
+            </button>
+            <button
+              onClick={() => setActiveFilter('activities')}
+              className={`px-3 py-1.5 rounded-xl transition cursor-pointer flex items-center gap-1 ${
+                activeFilter === 'activities' ? 'bg-white text-emerald-800 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <Compass className="w-3.5 h-3.5 text-emerald-600" />
+              <span>المشاريع ({wilayaActivities.length})</span>
+            </button>
+            <button
+              onClick={() => setActiveFilter('stories')}
+              className={`px-3 py-1.5 rounded-xl transition cursor-pointer flex items-center gap-1 ${
+                activeFilter === 'stories' ? 'bg-white text-rose-800 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <Eye className="w-3.5 h-3.5 text-rose-600" />
+              <span>الستوريات ({wilayaStories.length})</span>
+            </button>
+            <button
+              onClick={() => setActiveFilter('volunteers')}
+              className={`px-3 py-1.5 rounded-xl transition cursor-pointer flex items-center gap-1 ${
+                activeFilter === 'volunteers' ? 'bg-white text-indigo-800 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <Users className="w-3.5 h-3.5 text-indigo-600" />
+              <span>المتطوعين ({wilayaVolunteers.length})</span>
+            </button>
           </div>
         </div>
 
-        {/* Horizontal Activities Cards Carousel in Selected Wilaya */}
-        <div>
-          <div className="flex items-center justify-between mb-3">
-            <h4 className="text-xs sm:text-sm font-black text-slate-900 flex items-center gap-1.5">
-              <Compass className="w-4 h-4 text-emerald-700" />
-              <span>مشاريع تطوعية جارية في ولاية {activeWilaya.nameAr}:</span>
-            </h4>
-            <span className="text-xs text-slate-500 font-bold">
-              {wilayaActivities.length} مشروع معتمد
-            </span>
-          </div>
+        {/* Content Section */}
+        <div className="pt-5 space-y-5">
+          
+          {/* ACTIVITIES IN THIS WILAYA */}
+          {(activeFilter === 'all' || activeFilter === 'activities') && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h4 className="text-sm font-black text-slate-900 flex items-center gap-1.5">
+                  <Compass className="w-4 h-4 text-emerald-600" />
+                  <span>المشاريع التطوعية المفتوحة في {activeWilaya.nameAr}:</span>
+                </h4>
+              </div>
 
-          {wilayaActivities.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {wilayaActivities.map((act) => (
-                <div
-                  key={act.id}
-                  onClick={() => onSelectActivity && onSelectActivity(act)}
-                  className="p-3.5 rounded-2xl bg-slate-50 hover:bg-emerald-50/50 border border-slate-200/80 transition cursor-pointer group flex flex-col justify-between"
-                >
-                  <div className="flex items-start gap-3">
-                    <img 
-                      src={act.coverImage} 
-                      alt={act.title} 
-                      className="w-16 h-16 rounded-xl object-cover shrink-0 border border-slate-200 group-hover:scale-105 transition"
-                    />
-                    <div className="min-w-0 flex-1">
-                      <div className="text-xs font-black text-slate-900 truncate">
-                        {act.title}
+              {wilayaActivities.length === 0 ? (
+                <div className="p-6 rounded-2xl bg-slate-50 border border-slate-200 text-center text-slate-500 text-xs">
+                  لا توجد مشاريع تطوعية نشطة حالياً في ولاية {activeWilaya.nameAr}. يمكنك اقتراح مبادرة جديدة!
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+                  {wilayaActivities.map(act => (
+                    <div
+                      key={act.id}
+                      onClick={() => onSelectActivity && onSelectActivity(act)}
+                      className="p-3.5 rounded-2xl border border-slate-200 hover:border-emerald-300 bg-white hover:bg-emerald-50/40 transition cursor-pointer flex flex-col justify-between gap-3 group shadow-2xs"
+                    >
+                      <div className="flex items-start gap-3">
+                        <img 
+                          src={act.coverImage} 
+                          alt={act.title} 
+                          className="w-16 h-16 rounded-xl object-cover border border-slate-200 shrink-0"
+                        />
+                        <div className="min-w-0">
+                          <h5 className="font-bold text-xs sm:text-sm text-slate-900 group-hover:text-emerald-800 line-clamp-1">
+                            {act.title}
+                          </h5>
+                          <p className="text-[11px] text-slate-500 line-clamp-2 mt-1">
+                            {act.description}
+                          </p>
+                        </div>
                       </div>
-                      <div className="text-[11px] text-slate-500 line-clamp-2 mt-0.5">
-                        {act.shortDescription}
+
+                      <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-[11px]">
+                        <span className="font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">
+                          +{act.basePoints} نقطة
+                        </span>
+                        <span className="text-slate-500 flex items-center gap-1 font-medium">
+                          <span>{act.enrolledCount} متطوع</span>
+                          <span>←</span>
+                        </span>
                       </div>
                     </div>
-                  </div>
-
-                  <div className="flex items-center justify-between mt-3 pt-2 border-t border-slate-200/60 text-[11px]">
-                    <span className="text-emerald-700 font-black">
-                      +{act.basePoints} نقطة
-                    </span>
-                    <span className="text-slate-500 font-medium flex items-center gap-1">
-                      <Users className="w-3 h-3" />
-                      <span>{act.enrolledCount} متطوع</span>
-                    </span>
-                  </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          ) : (
-            <div className="p-6 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200 text-slate-500 text-xs">
-              لا توجد مشاريع مخصصة حالياً لولاية {activeWilaya.nameAr}، يمكنك إضافة مشروعك الأول عبر زر "نشر نشاط"!
+              )}
             </div>
           )}
-        </div>
 
-        {/* Active Volunteers & Clubs in this Wilaya */}
-        {wilayaVolunteers.length > 0 && (
-          <div className="pt-3 border-t border-slate-100">
-            <h4 className="text-xs font-black text-slate-900 mb-2.5 flex items-center gap-1.5">
-              <Users className="w-4 h-4 text-emerald-700" />
-              <span>متطوعين ونوادي نشطة في {activeWilaya.nameAr}:</span>
-            </h4>
+          {/* STORIES IN THIS WILAYA */}
+          {(activeFilter === 'all' || activeFilter === 'stories') && wilayaStories.length > 0 && (
+            <div className="space-y-3 pt-2">
+              <h4 className="text-sm font-black text-slate-900 flex items-center gap-1.5">
+                <Eye className="w-4 h-4 text-rose-600" />
+                <span>ستوريات ولحظات التطوع من {activeWilaya.nameAr}:</span>
+              </h4>
 
-            <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
-              {wilayaVolunteers.map((u) => (
-                <div
-                  key={u.id}
-                  className="flex items-center gap-2 p-2 px-3 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 shrink-0 transition"
-                >
-                  <img 
-                    src={u.avatar} 
-                    alt={u.name} 
-                    className="w-8 h-8 rounded-lg object-cover"
-                  />
-                  <div>
-                    <div className="text-xs font-bold text-slate-900 truncate max-w-[110px]">
-                      {u.name}
-                    </div>
-                    <div className="text-[10px] text-emerald-700 font-bold">
-                      {u.points} نقطة
+              <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3">
+                {wilayaStories.map(story => (
+                  <div
+                    key={story.id}
+                    onClick={() => setActiveStoryModal(story)}
+                    className="relative aspect-[9/16] rounded-2xl overflow-hidden cursor-pointer group shadow-sm border border-slate-200"
+                  >
+                    <img 
+                      src={story.mediaUrl || 'https://images.unsplash.com/photo-1559027615-cd4628902d4a?auto=format&fit=crop&w=600&q=80'} 
+                      alt={story.userName}
+                      className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-black/30 p-2 flex flex-col justify-between text-white">
+                      <div className="flex items-center gap-1">
+                        <img 
+                          src={story.userAvatar} 
+                          alt={story.userName} 
+                          className="w-5 h-5 rounded-full border border-white"
+                        />
+                        <span className="text-[10px] font-bold truncate">{story.userName}</span>
+                      </div>
+                      <p className="text-[10px] line-clamp-2 font-medium">
+                        {story.caption || 'نشاط تطوعي ممتع ✨'}
+                      </p>
                     </div>
                   </div>
-
-                  {/* Direct chat button */}
-                  <button
-                    onClick={() => {
-                      openChatWithUser(u);
-                      if (onNavigateToChat) onNavigateToChat();
-                    }}
-                    className="p-1.5 rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-800 transition cursor-pointer"
-                    title={`محادثة خاصة مع ${u.name}`}
-                  >
-                    <MessageCircle className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          </div>
-        )}
+          )}
+
+          {/* ACTIVE VOLUNTEERS IN THIS WILAYA */}
+          {(activeFilter === 'all' || activeFilter === 'volunteers') && (
+            <div className="space-y-3 pt-2">
+              <h4 className="text-sm font-black text-slate-900 flex items-center gap-1.5">
+                <Users className="w-4 h-4 text-indigo-600" />
+                <span>متطوعو ونشطاء ولاية {activeWilaya.nameAr}:</span>
+              </h4>
+
+              {wilayaVolunteers.length === 0 ? (
+                <div className="p-4 rounded-xl bg-slate-50 text-slate-500 text-xs">
+                  كن أول متطوع يسجل من ولاية {activeWilaya.nameAr}!
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
+                  {wilayaVolunteers.map(user => (
+                    <div
+                      key={user.id}
+                      className="p-3 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 transition flex items-center justify-between gap-3 shadow-2xs"
+                    >
+                      <div 
+                        onClick={() => onSelectUser && onSelectUser(user)}
+                        className="flex items-center gap-2.5 min-w-0 cursor-pointer"
+                      >
+                        <img 
+                          src={user.avatar} 
+                          alt={user.name} 
+                          className="w-10 h-10 rounded-xl object-cover border border-slate-200 shrink-0"
+                        />
+                        <div className="min-w-0">
+                          <div className="text-xs font-black text-slate-900 truncate">
+                            {user.name}
+                          </div>
+                          <div className="text-[10px] text-slate-500 truncate">
+                            {user.points} نقطة • ستريك 🔥 {user.streakCount || 7}
+                          </div>
+                        </div>
+                      </div>
+
+                      {user.id !== currentUser.id && (
+                        <button
+                          onClick={() => {
+                            openChatWithUser(user);
+                            if (onNavigateToChat) onNavigateToChat();
+                          }}
+                          className="p-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 transition cursor-pointer shrink-0"
+                          title="بدء محادثة خاصة 💬"
+                        >
+                          <MessageCircle className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+        </div>
 
       </div>
 

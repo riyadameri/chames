@@ -16,7 +16,8 @@ import {
   ExternalLink,
   CheckCheck,
   Zap,
-  Filter
+  Filter,
+  UserCheck
 } from 'lucide-react';
 
 interface NotificationCenterModalProps {
@@ -142,6 +143,24 @@ export const NotificationCenterModal: React.FC<NotificationCenterModalProps> = (
         return (
           <div className="w-9 h-9 rounded-2xl bg-teal-500/15 text-teal-600 flex items-center justify-center shrink-0 border border-teal-200">
             <FileCheck className="w-5 h-5 text-teal-600" />
+          </div>
+        );
+      case 'institution_followed':
+        return (
+          <div className="w-9 h-9 rounded-2xl bg-blue-500/15 text-blue-600 flex items-center justify-center shrink-0 border border-blue-200">
+            <UserCheck className="w-5 h-5 text-blue-600" />
+          </div>
+        );
+      case 'institution_points_granted':
+        return (
+          <div className="w-9 h-9 rounded-2xl bg-emerald-500/15 text-emerald-600 flex items-center justify-center shrink-0 border border-emerald-200">
+            <Sparkles className="w-5 h-5 text-emerald-600 fill-emerald-500" />
+          </div>
+        );
+      case 'points_distributed_by_institution':
+        return (
+          <div className="w-9 h-9 rounded-2xl bg-purple-500/15 text-purple-600 flex items-center justify-center shrink-0 border border-purple-200">
+            <Award className="w-5 h-5 text-purple-600" />
           </div>
         );
       default:

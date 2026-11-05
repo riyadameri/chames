@@ -20,7 +20,9 @@ import {
   UserStory,
   DirectMessage,
   DirectConversation,
-  WilayaMapLocation
+  WilayaMapLocation,
+  PointDistributionLog,
+  MinistryGrantLog
 } from '../types';
 import { 
   INITIAL_ACTIVITIES, 
@@ -84,12 +86,22 @@ interface AppContextType {
   } | null;
   isSyncingDb: boolean;
   syncNowWithMongoDb: () => Promise<void>;
+  jwtToken: string | null;
   
-  // Subscriptions & Follows
+  // Subscriptions & Association Enrollment (الانخراط والمتابعة)
   toggleSubscription: (targetUserId: string) => void;
   isSubscribedTo: (targetUserId: string) => boolean;
   getUserSubscribersCount: (targetUserId: string) => number;
   getUserSubscriptionsCount: (userId: string) => number;
+  getInstitutionMembers: (institutionId: string) => UserAccount[];
+  getInstitutionMembersCount: (institutionId: string) => number;
+  isUserEnrolledInInstitution: (institutionId: string, userId?: string) => boolean;
+
+  // Ministry & Association Point Quota and Distribution System
+  grantPointsToInstitution: (institutionId: string, points: number, reason: string) => { success: boolean; message: string };
+  distributeInstitutionPoints: (institutionId: string, recipientUserId: string, points: number, reason: string) => { success: boolean; message: string };
+  pointDistributionLogs: PointDistributionLog[];
+  ministryGrantLogs: MinistryGrantLog[];
 
   // Actions
   addActivity: (activity: Omit<Activity, 'id' | 'enrolledCount' | 'completedCount'>) => void;
@@ -217,6 +229,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           longestStreak: merged[idx].longestStreak ?? 28,
           streakFreezeTokens: merged[idx].streakFreezeTokens ?? 2,
           dailyCheckInDone: merged[idx].dailyCheckInDone ?? false,
+          distributablePointsPool: merged[idx].distributablePointsPool ?? official.distributablePointsPool ?? (official.role === 'institution' ? 1500 : 0),
+          totalPointsGrantedByMinistry: merged[idx].totalPointsGrantedByMinistry ?? official.totalPointsGrantedByMinistry ?? (official.role === 'institution' ? 3000 : 0),
+          totalPointsDistributedToMembers: merged[idx].totalPointsDistributedToMembers ?? official.totalPointsDistributedToMembers ?? (official.role === 'institution' ? 1500 : 0),
         };
       } else {
         merged.push({
@@ -224,7 +239,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           streakCount: 14,
           longestStreak: 28,
           streakFreezeTokens: 2,
-          dailyCheckInDone: false
+          dailyCheckInDone: false,
+          distributablePointsPool: official.distributablePointsPool ?? (official.role === 'institution' ? 1500 : 0),
+          totalPointsGrantedByMinistry: official.totalPointsGrantedByMinistry ?? (official.role === 'institution' ? 3000 : 0),
+          totalPointsDistributedToMembers: official.totalPointsDistributedToMembers ?? (official.role === 'institution' ? 1500 : 0),
         });
       }
     }
@@ -315,6 +333,48 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // National Snap Map state (خريطة سناب الوطنية)
   const [selectedMapWilaya, setSelectedMapWilaya] = useState<WilayaMapLocation | null>(null);
 
+  // Point Distribution & Ministry Grant Logs
+  const [pointDistributionLogs, setPointDistributionLogs] = useState<PointDistributionLog[]>(() => {
+    const saved = localStorage.getItem('shams_distribution_logs');
+    return saved ? JSON.parse(saved) : [
+      {
+        id: 'dist-init-1',
+        institutionId: 'inst-ouargla-assoc',
+        institutionName: 'جمعية بريق الواحات للتنمية والبيئة - ورقلة',
+        recipientUserId: 'admin-gen-1',
+        recipientUserName: 'عامري رياض يوسف',
+        recipientUserAvatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=250&q=80',
+        points: 150,
+        reason: 'مكافأة المشاركة الميدانية في حملة تشجير واحة النخيل الكبرى',
+        distributedAt: '2026-10-15T14:30:00.000Z',
+        distributedBy: 'رئيس جمعية بريق الواحات'
+      }
+    ];
+  });
+
+  const [ministryGrantLogs, setMinistryGrantLogs] = useState<MinistryGrantLog[]>(() => {
+    const saved = localStorage.getItem('shams_grant_logs');
+    return saved ? JSON.parse(saved) : [
+      {
+        id: 'grant-init-1',
+        institutionId: 'inst-ouargla-assoc',
+        institutionName: 'جمعية بريق الواحات للتنمية والبيئة - ورقلة',
+        pointsGranted: 3000,
+        grantedBy: 'المدير العام للمنصة - وزارة الشباب والرياضة',
+        reason: 'ميزانية نقاط تشجيعية لأنشطة حماية واحات الجنوب الجزائري',
+        grantedAt: '2026-09-20T10:00:00.000Z'
+      }
+    ];
+  });
+
+  useEffect(() => {
+    localStorage.setItem('shams_distribution_logs', JSON.stringify(pointDistributionLogs));
+  }, [pointDistributionLogs]);
+
+  useEffect(() => {
+    localStorage.setItem('shams_grant_logs', JSON.stringify(ministryGrantLogs));
+  }, [ministryGrantLogs]);
+
   // Direct MongoDB Database State
   const [mongoDbStatus, setMongoDbStatus] = useState<{
     connected: boolean;
@@ -325,6 +385,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     counts?: Record<string, number>;
   } | null>(null);
   const [isSyncingDb, setIsSyncingDb] = useState<boolean>(false);
+
+  // JWT Security Token for Authenticated MongoDB Requests
+  const [jwtToken, setJwtToken] = useState<string | null>(() => {
+    return localStorage.getItem('shams_jwt_token');
+  });
 
   // Direct MongoDB Bootstrap on initial load
   useEffect(() => {
@@ -341,7 +406,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (bootRes.ok) {
           const bootData = await bootRes.json();
           if (bootData.success && bootData.data) {
-            const { users: u, activities: a, submissions: s, posts: p, clubs: c, notifications: n, blogs: b } = bootData.data;
+            const { users: u, activities: a, submissions: s, posts: p, clubs: c, notifications: n, blogs: b, messages: m } = bootData.data;
             if (Array.isArray(u) && u.length > 0) {
               if (isMounted) setUsers(u);
             } else {
@@ -356,7 +421,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                   posts,
                   clubs,
                   notifications,
-                  blogs: blogPosts
+                  blogs: blogPosts,
+                  messages: directMessages
                 })
               });
             }
@@ -366,6 +432,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             if (Array.isArray(c) && isMounted) setClubs(c);
             if (Array.isArray(n) && isMounted) setNotifications(n);
             if (Array.isArray(b) && isMounted) setBlogPosts(b);
+            if (Array.isArray(m) && isMounted && m.length > 0) {
+              setDirectMessages(prev => {
+                const map = new Map<string, DirectMessage>();
+                prev.forEach(item => map.set(item.id, item));
+                m.forEach((item: DirectMessage) => map.set(item.id, item));
+                return Array.from(map.values());
+              });
+            }
           }
         }
       } catch (err) {
@@ -376,6 +450,47 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     initDatabase();
     return () => { isMounted = false; };
   }, []);
+
+  // Live real-time polling for messages from MongoDB to allow immediate cross-client delivery
+  useEffect(() => {
+    if (!currentUserId) return;
+    let isMounted = true;
+
+    const fetchMessages = async () => {
+      try {
+        const headers: Record<string, string> = {};
+        if (jwtToken) {
+          headers['Authorization'] = `Bearer ${jwtToken}`;
+        }
+        const res = await fetch(`/api/db/messages?userId=${currentUserId}`, { headers });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && Array.isArray(data.messages) && isMounted) {
+            setDirectMessages(prev => {
+              const prevMap = new Map<string, DirectMessage>(prev.map(item => [item.id, item]));
+              let hasNew = false;
+              for (const msg of data.messages as DirectMessage[]) {
+                if (!prevMap.has(msg.id)) {
+                  prevMap.set(msg.id, msg);
+                  hasNew = true;
+                }
+              }
+              return hasNew ? Array.from(prevMap.values()) : prev;
+            });
+          }
+        }
+      } catch (e) {
+        // Silent catch for background polling
+      }
+    };
+
+    fetchMessages();
+    const interval = setInterval(fetchMessages, 3500);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [currentUserId, jwtToken]);
 
   // Helper to sanitize items before sending to database sync
   const sanitizeForSync = (arr: any[]) => (Array.isArray(arr) ? arr : []).map(item => {
@@ -915,6 +1030,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setCurrentUserId(found.id);
     setIsLoggedIn(true);
 
+    // Call server JWT authentication & NoSQL firewall verification in background
+    fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        emailOrPhone: payload.emailOrPhone,
+        password: payload.password
+      })
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && data.token) {
+          setJwtToken(data.token);
+          localStorage.setItem('shams_jwt_token', data.token);
+        }
+      })
+      .catch(err => console.warn('[JWT Auth Warning]', err));
+
     showToast({
       type: 'success',
       title: `أهلاً بك، ${found.name}`,
@@ -926,6 +1059,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const logoutUser = () => {
     setIsLoggedIn(false);
+    setJwtToken(null);
+    localStorage.removeItem('shams_jwt_token');
     showToast({
       type: 'info',
       title: 'تم تسجيل الخروج',
@@ -1832,9 +1967,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return { success: true, message: 'تم التعليق بنجاح' };
   };
 
-  // Subscriptions logic
+  // Subscriptions & Association Enrollment (الانخراط والمتابعة)
   const toggleSubscription = (targetUserId: string) => {
-    if (!requireAuth('متابعة هذا الحساب التطوعي')) return;
+    if (!requireAuth('متابعة أو الانخراط في هذا الحساب التطوعي')) return;
 
     if (targetUserId === currentUser.id) return;
 
@@ -1842,7 +1977,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const isSubbed = mySubs.includes(targetUserId);
 
     const targetUser = users.find(u => u.id === targetUserId);
-    const targetName = targetUser ? targetUser.name : 'المستخدم';
+    const targetName = targetUser ? targetUser.name : 'الحساب';
+    const isTargetInstitution = targetUser?.role === 'institution' || targetUser?.role === 'institution_admin';
 
     const updated = isSubbed 
       ? mySubs.filter(id => id !== targetUserId)
@@ -1856,29 +1992,55 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (isSubbed) {
       showToast({
         type: 'info',
-        title: 'إلغاء الاشتراك',
-        message: `تم إلغاء متابعة ${targetName}.`,
+        title: isTargetInstitution ? 'إلغاء الانخراط' : 'إلغاء المتابعة',
+        message: isTargetInstitution 
+          ? `تم إلغاء انخراطك في جمعية "${targetName}".` 
+          : `تم إلغاء متابعة ${targetName}.`,
       });
     } else {
       try {
         confetti({
-          particleCount: 40,
-          spread: 50,
+          particleCount: 45,
+          spread: 60,
           origin: { y: 0.7 }
         });
       } catch (e) {}
 
       showToast({
         type: 'success',
-        title: 'تم الاشتراك بنجاح! 🔔',
-        message: `أصبحت الآن مشتركاً ومتابعاً لأنشطة ومنشورات ${targetName}.`,
+        title: isTargetInstitution ? 'تم الانخراط والمتابعة بنجاح! 🏛️' : 'تم الاشتراك بنجاح! 🔔',
+        message: isTargetInstitution
+          ? `أصبحت الآن منخرطاً رسمياً ومتابعاً لـ "${targetName}". يمكنك الآن الاستفادة من مبادرات الجمعية ونقاط التحفيز الممنوحة من الوزارة!`
+          : `أصبحت الآن مشتركاً ومتابعاً لأنشطة ومنشورات ${targetName}.`,
       });
+
+      // Send official notification to the institution about new enrolled member
+      if (isTargetInstitution) {
+        addNotification({
+          userId: targetUserId,
+          type: 'institution_followed',
+          title: `منخرط جديد في الجمعية! 🤝`,
+          message: `انضم المتطوع "${currentUser.name}" من ولاية (${currentUser.wilaya}) إلى قائمة المنخرطين والمتابعين لجمعيتكم.`,
+          actor: {
+            name: currentUser.name,
+            avatar: currentUser.avatar,
+            role: currentUser.role
+          },
+          linkTab: 'institutions'
+        });
+      }
     }
   };
 
   const isSubscribedTo = (targetUserId: string) => {
     const mySubs = subscriptions[currentUser.id] || [];
     return mySubs.includes(targetUserId);
+  };
+
+  const isUserEnrolledInInstitution = (institutionId: string, userId?: string) => {
+    const uId = userId || currentUser.id;
+    const list = subscriptions[uId] || [];
+    return list.includes(institutionId);
   };
 
   const getUserSubscribersCount = (targetUserId: string) => {
@@ -1896,6 +2058,201 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const getUserSubscriptionsCount = (userId: string) => {
     const mySubs = subscriptions[userId] || [];
     return mySubs.length + 12;
+  };
+
+  // Get enrolled volunteer accounts for a specific association
+  const getInstitutionMembers = (institutionId: string): UserAccount[] => {
+    const memberIds: string[] = [];
+    Object.entries(subscriptions).forEach(([subscriberId, followedIds]) => {
+      if (Array.isArray(followedIds) && followedIds.includes(institutionId)) {
+        memberIds.push(subscriberId);
+      }
+    });
+
+    const enrolled = users.filter(u => memberIds.includes(u.id));
+    if (enrolled.length === 0) {
+      // Demo-friendly roster: provide available active volunteers so ministry & admin can test point awards
+      const volunteers = users.filter(u => u.role === 'individual' || u.id === 'admin-gen-1');
+      return volunteers.slice(0, 4);
+    }
+    return enrolled;
+  };
+
+  const getInstitutionMembersCount = (institutionId: string): number => {
+    let count = 0;
+    Object.values(subscriptions).forEach((followedIds) => {
+      if (Array.isArray(followedIds) && followedIds.includes(institutionId)) {
+        count++;
+      }
+    });
+    const target = users.find(u => u.id === institutionId);
+    const base = target?.role === 'institution' ? 28 : 12;
+    return count + base;
+  };
+
+  // Ministry grants point quota to an Association for distribution to volunteers
+  const grantPointsToInstitution = (institutionId: string, points: number, reason: string): { success: boolean; message: string } => {
+    if (!isShamsAdmin && currentUser.role !== 'general_admin') {
+      return { success: false, message: 'صلاحية منح النقاط للمؤسسات والجمعيات محصورة بمسؤولي وزارة الشباب والرياضة والمدير العام.' };
+    }
+    if (points <= 0) {
+      return { success: false, message: 'يرجى إدخال عدد نقاط موجب وصحيح.' };
+    }
+
+    const target = users.find(u => u.id === institutionId);
+    if (!target) {
+      return { success: false, message: 'الجمعية أو المؤسسة المحددة غير موجودة.' };
+    }
+
+    const targetName = target.name;
+
+    setUsers(prev => prev.map(u => {
+      if (u.id !== institutionId) return u;
+      const currentPool = u.distributablePointsPool || 0;
+      const currentGranted = u.totalPointsGrantedByMinistry || 0;
+      return {
+        ...u,
+        distributablePointsPool: currentPool + points,
+        totalPointsGrantedByMinistry: currentGranted + points
+      };
+    }));
+
+    const newGrantLog: MinistryGrantLog = {
+      id: `grant-${Date.now()}`,
+      institutionId,
+      institutionName: targetName,
+      pointsGranted: points,
+      grantedBy: currentUser.name || 'وزارة الشباب والرياضة',
+      reason: reason.trim() || 'دعم ومكافأة الفاعلية الميدانية',
+      grantedAt: new Date().toISOString()
+    };
+
+    setMinistryGrantLogs(prev => [newGrantLog, ...prev]);
+
+    // Send official notification to the institution
+    addNotification({
+      userId: institutionId,
+      type: 'institution_points_granted',
+      title: `منحة نقاط من وزارة الشباب والرياضة 🏛️ (+${points} نقطة)`,
+      message: `قررت الوزارة منح جمعية "${targetName}" حصة (${points} نقطة شمس) لتوزيعها على المتطوعين المنخرطين تكريماً لنشاطكم الميداني. السبب: ${reason}`,
+      points,
+      actor: {
+        name: currentUser.name,
+        avatar: currentUser.avatar,
+        role: currentUser.role
+      },
+      linkTab: 'institutions'
+    });
+
+    try {
+      confetti({ particleCount: 50, spread: 60, origin: { y: 0.6 } });
+    } catch (e) {}
+
+    showToast({
+      type: 'success',
+      title: 'تم منح النقاط للجمعية بنجاح! 🏛️',
+      message: `تم تزويد "${targetName}" برصيد ${points} نقطة شمس لتوزيعها على المنخرطين.`,
+      pointsAdded: points
+    });
+
+    return { success: true, message: `تم منح ${points} نقطة لـ ${targetName}` };
+  };
+
+  // Association distributes points to an enrolled member volunteer
+  const distributeInstitutionPoints = (
+    institutionId: string, 
+    recipientUserId: string, 
+    points: number, 
+    reason: string
+  ): { success: boolean; message: string } => {
+    const institution = users.find(u => u.id === institutionId);
+    if (!institution) {
+      return { success: false, message: 'المؤسسة غير موجودة.' };
+    }
+
+    const canDistribute = 
+      currentUser.id === institutionId || 
+      currentUser.role === 'general_admin' || 
+      isShamsAdmin ||
+      (currentUser.role === 'institution_admin' && currentUser.affiliatedInstitutionName === institution.name);
+
+    if (!canDistribute) {
+      return { success: false, message: 'ليس لديك صلاحية توزيع النقاط باسم هذه المؤسسة.' };
+    }
+
+    const currentPool = institution.distributablePointsPool || 0;
+    if (currentPool < points) {
+      return { 
+        success: false, 
+        message: `رصيد النقاط المتاح للتوزيع في الجمعية (${currentPool} نقطة) غير كافٍ لمنح ${points} نقطة. يمكن للوزارة شحن الرصيد.` 
+      };
+    }
+
+    const recipient = users.find(u => u.id === recipientUserId);
+    if (!recipient) {
+      return { success: false, message: 'المتطوع المستفيد غير موجود.' };
+    }
+
+    // Deduct from institution pool and credit recipient
+    setUsers(prev => prev.map(u => {
+      if (u.id === institutionId) {
+        return {
+          ...u,
+          distributablePointsPool: (u.distributablePointsPool || 0) - points,
+          totalPointsDistributedToMembers: (u.totalPointsDistributedToMembers || 0) + points
+        };
+      }
+      if (u.id === recipientUserId) {
+        return {
+          ...u,
+          points: (u.points || 0) + points
+        };
+      }
+      return u;
+    }));
+
+    const log: PointDistributionLog = {
+      id: `dist-${Date.now()}`,
+      institutionId,
+      institutionName: institution.name,
+      recipientUserId,
+      recipientUserName: recipient.name,
+      recipientUserAvatar: recipient.avatar,
+      points,
+      reason: reason.trim() || 'مكافأة تشجيعية للنشاط التطوعي والانخراط الفاعل',
+      distributedAt: new Date().toISOString(),
+      distributedBy: currentUser.name
+    };
+
+    setPointDistributionLogs(prev => [log, ...prev]);
+
+    // Send direct notification to recipient volunteer
+    addNotification({
+      userId: recipientUserId,
+      type: 'points_distributed_by_institution',
+      title: `مكافأة نقاط من ${institution.name} 🎁 (+${points} نقطة)`,
+      message: `منحتك الجمعية ${points} نقطة شمس تقديراً لعطائك وانخراطك: "${reason}"`,
+      points,
+      actor: {
+        name: institution.name,
+        avatar: institution.avatar,
+        role: institution.role
+      },
+      linkTab: 'profile'
+    });
+
+    try {
+      confetti({ particleCount: 50, spread: 60, origin: { y: 0.6 } });
+    } catch (e) {}
+
+    showToast({
+      type: 'success',
+      title: 'تم توزيع النقاط بنجاح! 🌟',
+      message: `تم تحويل ${points} نقطة شمس إلى رصيد المتطوع (${recipient.name}).`,
+      pointsAdded: points
+    });
+
+    return { success: true, message: `تم توزيع ${points} نقطة بنجاح` };
   };
 
   // ================= STREAK SYSTEM (الستريك التطوعي 🔥) =================
@@ -2130,6 +2487,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     setDirectMessages(prev => [...prev, newMsg]);
 
+    // Persist to MongoDB database via /api/db/messages with security token
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (jwtToken) headers['Authorization'] = `Bearer ${jwtToken}`;
+
+    fetch('/api/db/messages', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(newMsg)
+    }).catch(err => console.warn('[DirectMessage Save Warning]', err));
+
     // Simulate polite reply after 2.5s if communicating with staff or institution
     if (receiver.id !== currentUser.id && (receiver.role?.includes('admin') || receiver.role === 'institution')) {
       setTimeout(() => {
@@ -2151,6 +2518,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           read: false
         };
         setDirectMessages(curr => [...curr, autoReply]);
+
+        // Also persist auto reply to MongoDB
+        fetch('/api/db/messages', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(autoReply)
+        }).catch(err => console.warn('[AutoReply Save Warning]', err));
+
         addNotification({
           type: 'new_direct_message',
           title: `رسالة جديدة من ${receiver.name} 💬`,
@@ -2257,10 +2632,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         mongoDbStatus,
         isSyncingDb,
         syncNowWithMongoDb,
+        jwtToken,
         toggleSubscription,
         isSubscribedTo,
         getUserSubscribersCount,
         getUserSubscriptionsCount,
+        getInstitutionMembers,
+        getInstitutionMembersCount,
+        isUserEnrolledInInstitution,
+        grantPointsToInstitution,
+        distributeInstitutionPoints,
+        pointDistributionLogs,
+        ministryGrantLogs,
         addActivity,
         updateActivity,
         deleteActivity,

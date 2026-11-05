@@ -54,11 +54,14 @@ export async function connectToMongoDB(): Promise<Db> {
     console.log(`[MongoDB] Successfully connected to database: "${currentDbName}"`);
 
     // Verify index on collections for quick lookup by 'id'
-    const collections = ['users', 'activities', 'submissions', 'posts', 'clubs', 'notifications', 'blogs'];
+    const collections = ['users', 'activities', 'submissions', 'posts', 'clubs', 'notifications', 'blogs', 'messages'];
     for (const colName of collections) {
       try {
         const col = dbInstance.collection(colName);
         await col.createIndex({ id: 1 }, { unique: true, background: true });
+        if (colName === 'messages') {
+          await col.createIndex({ senderId: 1, receiverId: 1, createdAt: -1 }, { background: true });
+        }
       } catch (idxErr) {
         // Index might already exist
       }

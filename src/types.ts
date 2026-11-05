@@ -185,6 +185,9 @@ export interface UserAccount {
   createdAt?: string;
   isBanned?: boolean;
   banReason?: string;
+  distributablePointsPool?: number;          // رصيد نقاط شمس المتاح للجمعية لتوزيعه على المتطوعين المنخرطين
+  totalPointsGrantedByMinistry?: number;     // إجمالي رصيد النقاط الممنوحة من الوزارة
+  totalPointsDistributedToMembers?: number;  // إجمالي النقاط الموزعة على الأفراد
   badges: {
     id: string;
     title: string;
@@ -192,6 +195,29 @@ export interface UserAccount {
     earnedDate: string;
     color: string;
   }[];
+}
+
+export interface PointDistributionLog {
+  id: string;
+  institutionId: string;
+  institutionName: string;
+  recipientUserId: string;
+  recipientUserName: string;
+  recipientUserAvatar?: string;
+  points: number;
+  reason: string;
+  distributedAt: string;
+  distributedBy: string;
+}
+
+export interface MinistryGrantLog {
+  id: string;
+  institutionId: string;
+  institutionName: string;
+  pointsGranted: number;
+  grantedBy: string;
+  reason: string;
+  grantedAt: string;
 }
 
 // Aliases for convenience
@@ -337,7 +363,10 @@ export type AppNotificationType =
   | 'streak_milestone'     // إنجاز في الستريك
   | 'new_direct_message'   // رسالة خاصة جديدة
   | 'story_liked'          // تفاعل على الستوري
-  | 'announcement';        // تنبيه وزاري أو بلاغ هام
+  | 'announcement'         // تنبيه وزاري أو بلاغ هام
+  | 'institution_followed' // انخراط متطوع جديد في الجمعية
+  | 'institution_points_granted' // منحة رصيد نقاط من الوزارة للجمعية
+  | 'points_distributed_by_institution'; // مكافأة نقاط من الجمعية للمتطوع المنخرط
 
 export interface NotificationItem {
   id: string;

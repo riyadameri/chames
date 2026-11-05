@@ -433,18 +433,6 @@ export const AdminAccountManagerModal: React.FC<AdminAccountManagerModalProps> =
               <Building2 className="w-4 h-4" />
               <span>النوادي الشبانية ({clubs.length})</span>
             </button>
-
-            <button
-              onClick={() => setActiveTab('production_check')}
-              className={`px-4 py-2 rounded-xl text-xs font-black transition cursor-pointer shrink-0 flex items-center gap-2 ${
-                activeTab === 'production_check'
-                  ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/20'
-                  : 'bg-white/10 text-slate-200 hover:bg-white/15'
-              }`}
-            >
-              <Database className="w-4 h-4 text-emerald-400" />
-              <span>قاعدة بيانات MongoDB ({mongoDbStatus?.database || 'shames'})</span>
-            </button>
           </div>
         </div>
 

@@ -196,6 +196,138 @@ export const INITIAL_USERS: UserAccount[] = [
         color: 'blue'
       }
     ],
+  },
+  {
+    id: 'inst-ouargla-assoc',
+    name: 'جمعية بريق الواحات للتنمية والبيئة - ورقلة',
+    username: 'ouargla_assoc',
+    password: 'password123',
+    role: 'institution',
+    institutionType: 'association',
+    email: 'contact@ouargla-oasis.dz',
+    phone: '0555 30 31 32',
+    wilaya: '30 - ورقلة',
+    avatar: 'https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?auto=format&fit=crop&w=250&q=80',
+    coverImage: 'https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?auto=format&fit=crop&w=900&q=80',
+    bio: 'جمعية ولائية معتمدة تنشط في حماية واحات ورقلة الكبرى وتأطير المتطوعين في التشجير والسقي والعمل التضامني.',
+    points: 3450,
+    rank: 1,
+    completedTasksCount: 18,
+    hoursVolunteered: 240,
+    distributablePointsPool: 1500,
+    totalPointsGrantedByMinistry: 3000,
+    totalPointsDistributedToMembers: 1500,
+    registrationNumber: 'W-30/2024-0089',
+    accreditationStatus: 'approved',
+    createdAt: '2026-09-01T08:00:00.000Z',
+    badges: [
+      {
+        id: 'b-oasis-champ',
+        title: 'جمعية واحات متميزة 🌴',
+        icon: 'TreePine',
+        earnedDate: '2026-09-15',
+        color: 'emerald'
+      }
+    ]
+  },
+  {
+    id: 'inst-touggourt-assoc',
+    name: 'جمعية ريغ للابتكار والتضامن الشباني - تقرت',
+    username: 'touggourt_assoc',
+    password: 'password123',
+    role: 'institution',
+    institutionType: 'association',
+    email: 'info@touggourt-solidarity.dz',
+    phone: '0555 55 56 57',
+    wilaya: '55 - تقرت',
+    avatar: 'https://images.unsplash.com/photo-1531482615713-2afd69097998?auto=format&fit=crop&w=250&q=80',
+    coverImage: 'https://images.unsplash.com/photo-1531482615713-2afd69097998?auto=format&fit=crop&w=900&q=80',
+    bio: 'جمعية شبابية رائدة بوادي ريغ تنشط في الرقمنة التضامنية ومحو الأمية المعلوماتية وقوافل الصحة الميدانية.',
+    points: 2980,
+    rank: 2,
+    completedTasksCount: 14,
+    hoursVolunteered: 195,
+    distributablePointsPool: 1200,
+    totalPointsGrantedByMinistry: 2500,
+    totalPointsDistributedToMembers: 1300,
+    registrationNumber: 'W-55/2024-0042',
+    accreditationStatus: 'approved',
+    createdAt: '2026-09-05T08:00:00.000Z',
+    badges: [
+      {
+        id: 'b-digital-oasis',
+        title: 'جمعية الابتكار والريادة ⚡',
+        icon: 'Sparkles',
+        earnedDate: '2026-09-20',
+        color: 'amber'
+      }
+    ]
+  },
+  {
+    id: 'inst-algiers-scouts',
+    name: 'فوج الفداء للكشافة الإسلامية الجزائرية',
+    username: 'fidaa_scouts',
+    password: 'password123',
+    role: 'institution',
+    institutionType: 'scout_org',
+    email: 'scouts.fidaa@shams.dz',
+    phone: '0550 99 88 77',
+    wilaya: '16 - الجزائر العاصمة',
+    avatar: 'https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?auto=format&fit=crop&w=250&q=80',
+    coverImage: 'https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?auto=format&fit=crop&w=900&q=80',
+    bio: 'فوج كشفي معتمد ناشط في قوافل الإغاثة الوطنية، حماية الغابات، وحملات التوعية البيئية والمجتمعية.',
+    points: 4250,
+    rank: 1,
+    completedTasksCount: 22,
+    hoursVolunteered: 310,
+    distributablePointsPool: 2000,
+    totalPointsGrantedByMinistry: 4000,
+    totalPointsDistributedToMembers: 2000,
+    registrationNumber: 'SMA-16/1998-012',
+    accreditationStatus: 'approved',
+    createdAt: '2026-09-01T08:00:00.000Z',
+    badges: [
+      {
+        id: 'b-scout-honor',
+        title: 'وسام الشرف الكشفي ⚜️',
+        icon: 'Award',
+        earnedDate: '2026-09-10',
+        color: 'purple'
+      }
+    ]
+  },
+  {
+    id: 'inst-dar-chabab-1',
+    name: 'دار الشباب المستقبل - وادي قريش',
+    username: 'dar_chabab_1',
+    password: 'password123',
+    role: 'institution',
+    institutionType: 'youth_house',
+    email: 'darchabab.ouedkoriche@mjs.gov.dz',
+    phone: '021 95 44 20',
+    wilaya: '16 - الجزائر العاصمة',
+    avatar: 'https://images.unsplash.com/photo-1577495508048-b635879837f1?auto=format&fit=crop&w=250&q=80',
+    coverImage: 'https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?auto=format&fit=crop&w=900&q=80',
+    bio: 'مرفق شباني عمومي معتمد تابع لوزارة الشباب والرياضة يحتضن نوادي التطوع البيئي والابتكار والتكوين.',
+    points: 3120,
+    rank: 3,
+    completedTasksCount: 16,
+    hoursVolunteered: 210,
+    distributablePointsPool: 1800,
+    totalPointsGrantedByMinistry: 3500,
+    totalPointsDistributedToMembers: 1700,
+    registrationNumber: 'MJS-16-Y04',
+    accreditationStatus: 'approved',
+    createdAt: '2026-09-01T08:00:00.000Z',
+    badges: [
+      {
+        id: 'b-institution-badge',
+        title: 'هيكل شباني نموذجي 🏛️',
+        icon: 'Building2',
+        earnedDate: '2026-09-15',
+        color: 'blue'
+      }
+    ]
   }
 ];
 

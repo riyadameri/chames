@@ -217,6 +217,7 @@ const AppContent: React.FC = () => {
           <InstitutionClubsView 
             onOpenCreateActivity={() => setShowCreateActivityModal(true)}
             onSelectActivity={(act) => setSelectedActivity(act)}
+            onSelectUser={(u) => navigateToProfile(u)}
           />
         )}
 
@@ -448,6 +449,10 @@ const AppContent: React.FC = () => {
             setSelectedInstitutionForDetails(null);
             setSelectedActivity(act);
           }}
+          onSelectUser={(u) => {
+            setSelectedInstitutionForDetails(null);
+            navigateToProfile(u);
+          }}
         />
       )}
 
@@ -458,6 +463,10 @@ const AppContent: React.FC = () => {
           onSelectActivity={(act) => {
             setSelectedClubForDetails(null);
             setSelectedActivity(act);
+          }}
+          onSelectUser={(u) => {
+            setSelectedClubForDetails(null);
+            navigateToProfile(u);
           }}
         />
       )}
